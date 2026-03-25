@@ -1,0 +1,4 @@
+prenom,nom,email,password,business,country,address,city,zip,state,phone_cc,phone
+John,Smith,johnsmith1234@outlook.com,MyPass123!,John Smith LLC,United States,456 Oak Ave,New York,10001,New York,+1,5551234567
+Marie,Dupont,mariedupont88@outlook.com,SecureP@ss1,Marie Studio,France,12 Rue de Paris,Paris,75001,Ile-de-France,,0612345678
+Ahmed,Benali,ahmedbenali55@outlook.com,Test1234!,Ahmed Tech,Italy,Via Roma 10,Rome,00100,Lazio,,3912345678
