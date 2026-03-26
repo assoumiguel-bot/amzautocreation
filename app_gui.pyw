@@ -94,15 +94,9 @@ async def run_playwright_flow(app, prenom, nom, email, out_pass, dev_info=None):
     app.log("1. Launching Chrome (Playwright + Stealth)...")
     p = await async_playwright().start()
     try:
-        browser = await p.chromium.launch(
-            headless=False, channel="chrome",
-            args=["--disable-blink-features=AutomationControlled"]
-        )
+        browser = await p.chromium.launch(headless=False, channel="chrome")
     except Exception:
-        browser = await p.chromium.launch(
-            headless=False,
-            args=["--disable-blink-features=AutomationControlled"]
-        )
+        browser = await p.chromium.launch(headless=False)
     app._current_browser = browser
     # Store PID so we only kill THIS chrome, not user's chrome
     try:
@@ -110,53 +104,17 @@ async def run_playwright_flow(app, prenom, nom, email, out_pass, dev_info=None):
         flog(f"Browser PID: {app._browser_pid}")
     except Exception:
         app._browser_pid = None
-    ua = random.choice(USER_AGENTS)
     context = await browser.new_context(
-        user_agent=ua,
-        viewport={"width": random.randint(1200, 1400), "height": random.randint(700, 900)},
-        locale="en-US",
-        timezone_id="America/New_York",
+        user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
     )
     page = await context.new_page()
-    stealth = Stealth()
-    await stealth.apply_stealth_async(page)
-    # Extra anti-detection: override webdriver flag
-    await page.add_init_script("""
-        Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
-        Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]});
-        window.chrome = {runtime: {}};
-    """)
     try:
-            # --- WARMUP: browse like a human before Amazon ---
-            app.log("2. Warmup browsing...")
-            # Google
-            for _retry in range(3):
-                try:
-                    await page.goto("https://www.google.com", wait_until="domcontentloaded", timeout=15000)
-                    break
-                except Exception as e:
-                    if _retry < 2:
-                        app.log(f"   Google retry {_retry+1}... ({e})")
-                        await asyncio.sleep(3)
-                    else:
-                        raise
-            await page.wait_for_timeout(random.randint(1500, 3000))
-            # Random mouse movements on Google
-            for _ in range(random.randint(2, 4)):
-                await page.mouse.move(random.randint(100, 800), random.randint(100, 500))
-                await page.wait_for_timeout(random.randint(300, 800))
-            # Visit Amazon homepage first (not directly register)
-            app.log("   Amazon homepage warmup...")
-            await page.goto("https://www.amazon.com", wait_until="domcontentloaded", timeout=20000)
-            await page.wait_for_timeout(random.randint(2000, 4000))
-            # Random scroll on Amazon homepage
-            await page.mouse.wheel(0, random.randint(200, 500))
-            await page.wait_for_timeout(random.randint(1000, 2000))
-            await page.mouse.move(random.randint(200, 600), random.randint(200, 400))
-            await page.wait_for_timeout(random.randint(500, 1500))
+            app.log("2. Warmup Google...")
+            await page.goto("https://www.google.com", wait_until="domcontentloaded")
+            await page.wait_for_timeout(random.randint(2500, 4500))
 
-            app.log("3. Amazon register page...")
-            await page.goto(AMAZON_REGISTER_URL, wait_until="domcontentloaded", timeout=30000)
+            app.log("3. Direct amazon.com/ap/register (bla dev portal)...")
+            await page.goto(AMAZON_REGISTER_URL, wait_until="domcontentloaded")
             await page.wait_for_timeout(random.randint(2500, 4000))
 
             # If redirected to signin page, click "Create your Amazon Developer account"
