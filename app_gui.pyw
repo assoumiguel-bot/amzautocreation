@@ -137,16 +137,31 @@ async def run_playwright_flow(app, prenom, nom, email, out_pass, dev_info=None):
                     except Exception:
                         continue
 
-            email_only = await page.query_selector_all("#ap_email")
+            # Detect email-first sign-in (old #ap_email OR new placeholder-based input)
+            email_only = await page.query_selector("#ap_email")
+            email_init_sel = "#ap_email" if email_only else None
+            if not email_only:
+                for sel in ["input[type='email']", "input[placeholder*='email']", "input[placeholder*='mobile']"]:
+                    try:
+                        el = page.locator(sel).first
+                        if await el.is_visible():
+                            email_init_sel = sel
+                            break
+                    except Exception:
+                        continue
             name_fields = await page.query_selector_all("#ap_customer_name")
-            if email_only and not name_fields:
-                app.log("   Email-first flow...")
-                await pw_human_type(page, "#ap_email", email)
+            if email_init_sel and not name_fields:
+                app.log(f"   Email-first flow ({email_init_sel})...")
+                await pw_human_type(page, email_init_sel, email)
                 await page.wait_for_timeout(1000)
-                try:
-                    await page.click("#continue")
-                except Exception:
-                    pass
+                for btn in ["#continue", "input[type='submit']", "button:has-text('Continue')", "button:has-text('Sign in')"]:
+                    try:
+                        el = page.locator(btn).first
+                        if await el.is_visible():
+                            await el.click()
+                            break
+                    except Exception:
+                        continue
                 await page.wait_for_timeout(random.randint(2500, 4000))
 
                 # Check "We cannot find an account" → click Create button
@@ -311,60 +326,84 @@ async def run_playwright_flow(app, prenom, nom, email, out_pass, dev_info=None):
                         create_url = "https://www.amazon.com/ap/register?openid.return_to=https%3A%2F%2Fdeveloper.amazon.com%2Fdashboard&openid.assoc_handle=mas_dev_portal&openid.mode=checkid_setup&openid.ns=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0"
                         await page.goto(create_url, wait_until="domcontentloaded")
                         await page.wait_for_timeout(3000)
-                        # If redirected to sign-in page, click "Create your Amazon Developer account"
-                        for create_sel in [
-                            "a[id='createAccountSubmit']",
-                            "a:has-text('Create your Amazon Developer account')",
-                            "a:has-text('Create your Amazon account')",
-                            "a:has-text('Create account')",
-                            "button:has-text('Create your Amazon Developer account')",
-                        ]:
-                            try:
-                                create_link = page.locator(create_sel).first
-                                if await create_link.is_visible():
-                                    app.log(f"   Clicking '{create_sel}'...")
-                                    await create_link.click()
-                                    await page.wait_for_timeout(3000)
-                                    break
-                            except Exception:
-                                continue
-                        # Check if we're on email-first sign-in (no name field)
-                        email_field = await page.query_selector("#ap_email")
-                        name_field = await page.query_selector("#ap_customer_name")
-                        if email_field and not name_field:
-                            app.log("   Email-first sign-in flow detected after retry...")
-                            await pw_human_type(page, "#ap_email", email)
-                            await page.wait_for_timeout(1000)
-                            try:
-                                await page.click("#continue")
-                            except Exception:
-                                pass
-                            await page.wait_for_timeout(3000)
-                            # Check "cannot find account" → click Create
-                            try:
-                                retry_text = await page.inner_text("body") if await page.query_selector("body") else ""
-                            except Exception:
-                                retry_text = ""
-                            if "cannot find an account" in retry_text.lower() or "no account found" in retry_text.lower():
-                                app.log("   'Cannot find account' → clicking Create...")
-                                for cs in [
-                                    "a:has-text('Create your Amazon Developer account')",
-                                    "a[id='createAccountSubmit']",
-                                    "#auth-create-account-link",
-                                    "a:has-text('Create your Amazon account')",
-                                    "a:has-text('Create a new Amazon account')",
-                                    "a:has-text('Create account')",
-                                    "button:has-text('Create your Amazon Developer account')",
-                                ]:
+                        # If redirected to sign-in, click "Create account" (try multiple times)
+                        for _create_try in range(3):
+                            # Try clicking Create link directly
+                            create_clicked = False
+                            for create_sel in [
+                                "a[id='createAccountSubmit']",
+                                "a:has-text('Create your Amazon Developer account')",
+                                "a:has-text('Create your Amazon account')",
+                                "a:has-text('Create a new Amazon account')",
+                                "a:has-text('Create account')",
+                                "#auth-create-account-link",
+                                "button:has-text('Create your Amazon Developer account')",
+                                "[data-action='sign-up']",
+                            ]:
+                                try:
+                                    create_link = page.locator(create_sel).first
+                                    if await create_link.is_visible():
+                                        app.log(f"   Clicking '{create_sel}'...")
+                                        await create_link.click()
+                                        create_clicked = True
+                                        await page.wait_for_timeout(3000)
+                                        break
+                                except Exception:
+                                    continue
+                            if create_clicked:
+                                break
+                            # No create link visible — check for email-first sign-in (old or new selectors)
+                            email_sel_retry = None
+                            for sel in ["#ap_email", "input[type='email']", "input[placeholder*='email']", "input[placeholder*='mobile']"]:
+                                try:
+                                    el = page.locator(sel).first
+                                    if await el.is_visible():
+                                        email_sel_retry = sel
+                                        break
+                                except Exception:
+                                    continue
+                            name_field = await page.query_selector("#ap_customer_name")
+                            if email_sel_retry and not name_field:
+                                app.log(f"   Email-first sign-in detected ({email_sel_retry}) — entering email...")
+                                await pw_human_type(page, email_sel_retry, email)
+                                await page.wait_for_timeout(1000)
+                                for btn in ["#continue", "input[type='submit']", "button:has-text('Continue')", "button:has-text('Sign in')"]:
                                     try:
-                                        cel = page.locator(cs).first
-                                        if await cel.is_visible():
-                                            await cel.click()
-                                            app.log(f"   Clicked: {cs}")
-                                            await page.wait_for_timeout(3000)
+                                        el = page.locator(btn).first
+                                        if await el.is_visible():
+                                            await el.click()
                                             break
                                     except Exception:
                                         continue
+                                await page.wait_for_timeout(3000)
+                                # Check "cannot find account" → click Create
+                                try:
+                                    retry_text = await page.inner_text("body") if await page.query_selector("body") else ""
+                                except Exception:
+                                    retry_text = ""
+                                if "cannot find an account" in retry_text.lower() or "no account found" in retry_text.lower():
+                                    app.log("   'Cannot find account' → clicking Create...")
+                                    for cs in [
+                                        "a:has-text('Create your Amazon Developer account')",
+                                        "a[id='createAccountSubmit']",
+                                        "#auth-create-account-link",
+                                        "a:has-text('Create your Amazon account')",
+                                        "a:has-text('Create a new Amazon account')",
+                                        "a:has-text('Create account')",
+                                        "button:has-text('Create your Amazon Developer account')",
+                                    ]:
+                                        try:
+                                            cel = page.locator(cs).first
+                                            if await cel.is_visible():
+                                                await cel.click()
+                                                app.log(f"   Clicked: {cs}")
+                                                await page.wait_for_timeout(3000)
+                                                break
+                                        except Exception:
+                                            continue
+                                    break
+                            else:
+                                break
                         # Now fill registration form
                         app.log("Re-filling registration form...")
                         if await page.query_selector("#ap_customer_name"):
@@ -857,7 +896,10 @@ async def run_playwright_flow(app, prenom, nom, email, out_pass, dev_info=None):
                                            "Australia": "AU", "Japan": "JP", "Spain": "ES",
                                            "Italy": "IT", "Brazil": "BR", "India": "IN",
                                            "Singapore": "SG", "Sweden": "SE", "Switzerland": "CH",
-                                           "Belgium": "BE", "Poland": "PL", "Turkey": "TR"}
+                                           "Belgium": "BE", "Poland": "PL", "Turkey": "TR",
+                                           "Denmark": "DK", "Finland": "FI", "Croatia": "HR",
+                                           "Luxembourg": "LU", "Portugal": "PT", "Austria": "AT",
+                                           "Greece": "GR"}
                             cc = country_codes.get(country, "")
                             # Try with value attribute first (more specific)
                             clicked = False
@@ -956,7 +998,10 @@ async def run_playwright_flow(app, prenom, nom, email, out_pass, dev_info=None):
                                   "Australia": "AU (+61)", "Japan": "JP (+81)", "Spain": "ES (+34)",
                                   "Italy": "IT (+39)", "Brazil": "BR (+55)", "India": "IN (+91)",
                                   "Singapore": "SG (+65)", "Sweden": "SE (+46)", "Switzerland": "CH (+41)",
-                                  "Belgium": "BE (+32)", "Poland": "PL (+48)", "Turkey": "TR (+90)"}
+                                  "Belgium": "BE (+32)", "Poland": "PL (+48)", "Turkey": "TR (+90)",
+                                  "Denmark": "DK (+45)", "Finland": "FI (+358)", "Croatia": "HR (+385)",
+                                  "Luxembourg": "LU (+352)", "Portugal": "PT (+351)", "Austria": "AT (+43)",
+                                  "Greece": "GR (+30)"}
                         cc_label = cc_map.get(country, "US (+1)")
                         cc_search = cc_label[:2].lower()
                         await page.keyboard.type(cc_search, delay=80)
