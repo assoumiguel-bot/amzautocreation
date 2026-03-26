@@ -1003,6 +1003,236 @@ async def run_playwright_flow(app, prenom, nom, email, out_pass, dev_info=None):
                     app.log(f"   Developer Console sali! URL: {page.url}")
 
                 app.update_status(f"DONE! OTP {otp}", "green")
+
+                # ====== INLINE 2FA SETUP (same browser session) ======
+                if getattr(app, '_do_2fa', True) and not getattr(app, '_stop_flag', False):
+                    app.log("2FA: Session active — going to 2FA setup...")
+                    app.update_status("2FA Setup...", "orange")
+                    app._2fa_totp_secret = None
+
+                    for _2fa_attempt in range(3):
+                        if getattr(app, '_stop_flag', False):
+                            break
+                        if _2fa_attempt > 0:
+                            app.log(f"2FA: Retry {_2fa_attempt+1}/3...")
+                            await page.wait_for_timeout(3000)
+
+                        await page.goto(AMAZON_2FA_URL, wait_until="domcontentloaded", timeout=30000)
+                        await page.wait_for_timeout(4000)
+
+                        # Handle password re-entry if needed
+                        for _pw_try in range(3):
+                            cur = page.url.lower()
+                            if "approval" in cur or "settings" in cur or "mfa" in cur:
+                                break
+                            pw_el = None
+                            for sel in ["#ap_password", "input[type='password']"]:
+                                try:
+                                    el = page.locator(sel).first
+                                    if await el.is_visible():
+                                        pw_el = el
+                                        break
+                                except Exception:
+                                    continue
+                            if pw_el:
+                                app.log("2FA: Re-entering password...")
+                                await pw_el.click()
+                                await page.wait_for_timeout(200)
+                                await page.keyboard.type(out_pass, delay=80)
+                                await page.wait_for_timeout(500)
+                                for btn in ["#signInSubmit", "input[type='submit']", "button[type='submit']",
+                                            "button:has-text('Sign in')", "button:has-text('Sign-In')"]:
+                                    try:
+                                        el = page.locator(btn).first
+                                        if await el.is_visible():
+                                            await el.click()
+                                            break
+                                    except Exception:
+                                        continue
+                                await page.wait_for_timeout(4000)
+                                continue
+                            # Check for email field
+                            em_el = None
+                            for sel in ["#ap_email", "input[type='email']", "input[placeholder*='email']", "input[placeholder*='mobile']"]:
+                                try:
+                                    el = page.locator(sel).first
+                                    if await el.is_visible():
+                                        em_el = el
+                                        break
+                                except Exception:
+                                    continue
+                            if em_el:
+                                app.log("2FA: Re-entering email...")
+                                await em_el.click()
+                                await page.wait_for_timeout(200)
+                                await page.keyboard.type(email, delay=80)
+                                await page.wait_for_timeout(500)
+                                for btn in ["#continue", "input[type='submit']", "button:has-text('Continue')", "button:has-text('Sign in')"]:
+                                    try:
+                                        el = page.locator(btn).first
+                                        if await el.is_visible():
+                                            await el.click()
+                                            break
+                                    except Exception:
+                                        continue
+                                await page.wait_for_timeout(3000)
+                                continue
+                            break
+
+                        app.log(f"2FA: URL after auth: {page.url[:80]}")
+
+                        # Select Authenticator App
+                        app.log("2FA: Selecting Authenticator App...")
+                        for sel in ["input[value='authenticator']", "input[type='radio'][value*='auth']",
+                                    "input[type='radio'][value*='totp']", "#auth-TOTP",
+                                    "label:has-text('Authenticator App')", "label:has-text('authenticator')",
+                                    "a:has-text('Authenticator App')"]:
+                            try:
+                                el = page.locator(sel).first
+                                if await el.is_visible():
+                                    await el.click()
+                                    app.log(f"   Clicked: {sel}")
+                                    await page.wait_for_timeout(2000)
+                                    break
+                            except Exception:
+                                continue
+
+                        # Click "Can't scan the barcode?"
+                        app.log("2FA: Looking for 'Can't scan' link...")
+                        for sel in ["a:has-text(\"Can't scan the barcode\")", "a:has-text(\"Can't scan\")",
+                                    "a:has-text('enter a key')", "a:has-text('enter it manually')",
+                                    "a:has-text('manually enter')", "a:has-text('barcode')",
+                                    "button:has-text(\"Can't scan\")", "span:has-text(\"Can't scan\")"]:
+                            try:
+                                el = page.locator(sel).first
+                                if await el.is_visible():
+                                    await el.click()
+                                    app.log(f"   Clicked: {sel}")
+                                    await page.wait_for_timeout(3000)
+                                    break
+                            except Exception:
+                                continue
+
+                        # Extract TOTP secret
+                        secret = None
+                        FAKE_SECRETS = {"entermobilenumberoremail", "enteremailormobilenumber",
+                                       "signinorcreateaccount", "continuetosignin", "createaccount"}
+                        for sel in ["#totp-secret", "#secret-key", "input[id*='secret']", "input[readonly]",
+                                    "code", "kbd", "pre", ".a-text-bold", "span.a-text-bold",
+                                    "#auth-mfa-setup-description b", "#auth-mfa-setup-description strong",
+                                    "div.a-alert-content b", "b", "strong"]:
+                            try:
+                                elements = page.locator(sel)
+                                count = await elements.count()
+                                for i in range(min(count, 10)):
+                                    el = elements.nth(i)
+                                    if await el.is_visible():
+                                        text = await el.input_value() if sel.startswith("input") else await el.inner_text()
+                                        clean = text.strip().replace(" ", "").replace("-", "")
+                                        if 16 <= len(clean) <= 52 and re.match(r'^[A-Za-z2-7]+$', clean):
+                                            if clean.lower() not in FAKE_SECRETS:
+                                                has_digits = any(c in '234567' for c in clean)
+                                                is_word = clean.lower().isalpha() and len(clean) < 30
+                                                if has_digits or not is_word:
+                                                    secret = clean.upper()
+                                                    app.log(f"   TOTP Secret: {secret[:4]}...{secret[-4:]}")
+                                                    break
+                            except Exception:
+                                continue
+                            if secret:
+                                break
+
+                        # Method 2: regex from page text
+                        if not secret:
+                            try:
+                                pg_text = await page.inner_text("body")
+                                matches = re.findall(r'\b([A-Z2-7]{16,52})\b', pg_text)
+                                real = [m for m in matches if any(c in '234567' for c in m)]
+                                if not real:
+                                    real = [m for m in matches if not m.isalpha()]
+                                if real:
+                                    secret = max(real, key=len)
+                                    app.log(f"   TOTP Secret (regex): {secret[:4]}...{secret[-4:]}")
+                                else:
+                                    matches2 = re.findall(r'([A-Z2-7]{4}[\s]+[A-Z2-7]{4}[\s]+[A-Z2-7]{4}[\s]+[A-Z2-7]{4,})', pg_text)
+                                    if matches2:
+                                        secret = matches2[0].replace(" ", "")
+                                        app.log(f"   TOTP Secret (spaced): {secret[:4]}...{secret[-4:]}")
+                            except Exception:
+                                pass
+
+                        if not secret:
+                            app.log(f"2FA: Secret not found (attempt {_2fa_attempt+1})")
+                            try:
+                                await page.screenshot(path=os.path.join(BASE_DIR, f"2fa_fail_{email.split('@')[0]}.png"), full_page=True)
+                            except Exception:
+                                pass
+                            continue
+
+                        # Generate TOTP code and verify
+                        app.log("2FA: Generating TOTP code...")
+                        try:
+                            import pyotp
+                        except ImportError:
+                            subprocess.run([sys.executable, "-m", "pip", "install", "pyotp"], capture_output=True, timeout=30)
+                            import pyotp
+                        totp_obj = pyotp.TOTP(secret)
+                        code_2fa = totp_obj.now()
+                        app.log(f"   TOTP Code: {code_2fa}")
+
+                        # Enter code
+                        for sel in ["#auth-mfa-otpcode", "input[name='otpCode']", "input[name='code']",
+                                    "input[placeholder*='code']", "input[type='tel']", "input[maxlength='6']"]:
+                            try:
+                                el = page.locator(sel).first
+                                if await el.is_visible():
+                                    await el.fill("")
+                                    await pw_human_type(page, sel, code_2fa)
+                                    app.log(f"   Entered code in: {sel}")
+                                    break
+                            except Exception:
+                                continue
+                        await page.wait_for_timeout(1000)
+
+                        # Click verify
+                        for btn in ["#auth-mfa-remember-device-submit", "button:has-text('Verify OTP')",
+                                    "button:has-text('Verify')", "input[type='submit']", "button[type='submit']"]:
+                            try:
+                                el = page.locator(btn).first
+                                if await el.is_visible():
+                                    await el.click()
+                                    app.log(f"   Clicked: {btn}")
+                                    break
+                            except Exception:
+                                continue
+                        await page.wait_for_timeout(5000)
+
+                        # Check success
+                        try:
+                            r_text = await page.inner_text("body")
+                            if any(kw in r_text.lower() for kw in ["two-step verification", "success", "enabled", "done", "got it"]):
+                                app.log(f"2FA: SUCCESS for {email}!")
+                                for btn in ["button:has-text('Got it')", "button:has-text('Done')", "a:has-text('Got it')", "a:has-text('Done')"]:
+                                    try:
+                                        el = page.locator(btn).first
+                                        if await el.is_visible():
+                                            await el.click()
+                                            break
+                                    except Exception:
+                                        continue
+                            else:
+                                app.log("2FA: Result unclear — may need manual check")
+                        except Exception:
+                            pass
+
+                        app._2fa_totp_secret = secret
+                        app.update_status(f"2FA OK: {email}", "green")
+                        break  # 2FA success, exit retry loop
+
+                    if not app._2fa_totp_secret:
+                        app.log(f"2FA: FAILED after 3 attempts for {email}")
+                # ====== END INLINE 2FA ======
+
             elif not otp:
                 app.log("OTP manl9awch - account SKIP")
 
@@ -2837,31 +3067,14 @@ class App:
                     self.log(f"OK: {email}")
                     self._update_table_status(idx, "ok")
                     self._update_sheet_status(email, "ok")
-                    # Auto setup 2FA after successful creation (retry up to 3x)
-                    if not self._stop_flag:
-                        self.log(f"2FA: Auto-setup for {email}...")
-                        tfa_secret = None
-                        for tfa_retry in range(3):
-                            if self._stop_flag:
-                                break
-                            if tfa_retry > 0:
-                                self.log(f"2FA: Retry {tfa_retry+1}/3 for {email}...")
-                                time.sleep(3)
-                                self.connect_vpn_proton_country(country)
-                            try:
-                                tfa_secret = asyncio.run(setup_2fa_flow(self, email, out_pass))
-                                if tfa_secret:
-                                    self.log(f"2FA OK: {email}")
-                                    self._update_sheet_status(email, "ok+2fa")
-                                    self._update_sheet_totp(email, tfa_secret)
-                                    break
-                                else:
-                                    self.log(f"2FA attempt {tfa_retry+1} failed for {email}")
-                            except Exception as tfa_err:
-                                flog(f"2FA auto error (attempt {tfa_retry+1}): {tfa_err}")
-                                self.log(f"2FA attempt {tfa_retry+1} error: {tfa_err}")
-                        if not tfa_secret and not self._stop_flag:
-                            self.log(f"2FA FAILED after 3 retries: {email} — account created but 2FA not set")
+                    # 2FA is now done inline inside run_playwright_flow (same session)
+                    tfa_secret = getattr(self, '_2fa_totp_secret', None)
+                    if tfa_secret:
+                        self.log(f"2FA OK (inline): {email}")
+                        self._update_sheet_status(email, "ok+2fa")
+                        self._update_sheet_totp(email, tfa_secret)
+                    else:
+                        self.log(f"2FA not completed for {email} — account created, 2FA pending")
             except Exception as e:
                 flog(f"=== BATCH EXCEPTION for {email}: {type(e).__name__}: {e} ===")
                 # Check _last_result first — it may have been set before the exception
