@@ -164,32 +164,40 @@ async def run_playwright_flow(app, prenom, nom, email, out_pass, dev_info=None):
                         continue
                 await page.wait_for_timeout(random.randint(2500, 4000))
 
-                # Check "We cannot find an account" → click Create button
-                try:
-                    page_text = await page.inner_text("body") if await page.query_selector("body") else ""
-                except Exception:
-                    page_text = ""
-                if "cannot find an account" in page_text.lower() or "no account found" in page_text.lower() or "signin" in page.url.lower():
-                    app.log("   'Cannot find account' → clicking Create...")
-                    for create_sel in [
-                        "a:has-text('Create your Amazon Developer account')",
-                        "a[id='createAccountSubmit']",
-                        "#auth-create-account-link",
-                        "a:has-text('Create your Amazon account')",
-                        "a:has-text('Create a new Amazon account')",
-                        "a:has-text('Create account')",
-                        "button:has-text('Create your Amazon Developer account')",
-                        "[data-action='sign-up']",
-                    ]:
-                        try:
-                            el = page.locator(create_sel).first
-                            if await el.is_visible():
-                                await el.click()
-                                app.log(f"   Clicked: {create_sel}")
-                                await page.wait_for_timeout(3000)
-                                break
-                        except Exception:
-                            continue
+                # Always try to click "Create your Amazon Developer account" after Continue
+                # (appears when account not found, or at bottom of sign-in page)
+                app.log("   Looking for 'Create' button...")
+                create_clicked = False
+                for create_sel in [
+                    "a:has-text('Create your Amazon Developer account')",
+                    "button:has-text('Create your Amazon Developer account')",
+                    "span:has-text('Create your Amazon Developer account')",
+                    "a[id='createAccountSubmit']",
+                    "#auth-create-account-link",
+                    "a:has-text('Create your Amazon account')",
+                    "a:has-text('Create a new Amazon account')",
+                    "a:has-text('Create account')",
+                    "button:has-text('Create account')",
+                    "[data-action='sign-up']",
+                ]:
+                    try:
+                        el = page.locator(create_sel).first
+                        if await el.is_visible():
+                            await el.click()
+                            create_clicked = True
+                            app.log(f"   Clicked: {create_sel}")
+                            await page.wait_for_timeout(3000)
+                            break
+                    except Exception:
+                        continue
+                if not create_clicked:
+                    app.log("   Create button mal9ach — trying page text check...")
+                    try:
+                        page_text = await page.inner_text("body") if await page.query_selector("body") else ""
+                    except Exception:
+                        page_text = ""
+                    if "cannot find" in page_text.lower() or "no account" in page_text.lower():
+                        app.log("   'Cannot find account' detected but Create button not found!")
 
             app.log("4. Filling form (keyboard b7al human)...")
             if await page.query_selector("#ap_customer_name"):
@@ -376,32 +384,30 @@ async def run_playwright_flow(app, prenom, nom, email, out_pass, dev_info=None):
                                     except Exception:
                                         continue
                                 await page.wait_for_timeout(3000)
-                                # Check "cannot find account" → click Create
-                                try:
-                                    retry_text = await page.inner_text("body") if await page.query_selector("body") else ""
-                                except Exception:
-                                    retry_text = ""
-                                if "cannot find an account" in retry_text.lower() or "no account found" in retry_text.lower():
-                                    app.log("   'Cannot find account' → clicking Create...")
-                                    for cs in [
-                                        "a:has-text('Create your Amazon Developer account')",
-                                        "a[id='createAccountSubmit']",
-                                        "#auth-create-account-link",
-                                        "a:has-text('Create your Amazon account')",
-                                        "a:has-text('Create a new Amazon account')",
-                                        "a:has-text('Create account')",
-                                        "button:has-text('Create your Amazon Developer account')",
-                                    ]:
-                                        try:
-                                            cel = page.locator(cs).first
-                                            if await cel.is_visible():
-                                                await cel.click()
-                                                app.log(f"   Clicked: {cs}")
-                                                await page.wait_for_timeout(3000)
-                                                break
-                                        except Exception:
-                                            continue
-                                    break
+                                # Always try to click Create button after entering email
+                                app.log("   Looking for 'Create' button after email...")
+                                for cs in [
+                                    "a:has-text('Create your Amazon Developer account')",
+                                    "button:has-text('Create your Amazon Developer account')",
+                                    "span:has-text('Create your Amazon Developer account')",
+                                    "a[id='createAccountSubmit']",
+                                    "#auth-create-account-link",
+                                    "a:has-text('Create your Amazon account')",
+                                    "a:has-text('Create a new Amazon account')",
+                                    "a:has-text('Create account')",
+                                    "button:has-text('Create account')",
+                                    "[data-action='sign-up']",
+                                ]:
+                                    try:
+                                        cel = page.locator(cs).first
+                                        if await cel.is_visible():
+                                            await cel.click()
+                                            app.log(f"   Clicked: {cs}")
+                                            await page.wait_for_timeout(3000)
+                                            break
+                                    except Exception:
+                                        continue
+                                break
                             else:
                                 break
                         # Now fill registration form
