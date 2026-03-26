@@ -680,6 +680,11 @@ async def run_playwright_flow(app, prenom, nom, email, out_pass, dev_info=None):
                         except Exception:
                             continue
 
+                    # If Amazon email not found → resend from Amazon and retry
+                    if not amazon_clicked:
+                        app.log(f"   Attempt {otp_attempt+1}: Amazon email mal9ach f Outlook — resend...")
+                        continue
+
                     await page_outlook.wait_for_timeout(3000)
 
                     # OTP: nakhdo HTML dyal l-page
@@ -701,7 +706,7 @@ async def run_playwright_flow(app, prenom, nom, email, out_pass, dev_info=None):
                         app.log(f"   OTP l9inah: {otp_matches[0]}")
                         break
                     else:
-                        app.log(f"   Attempt {otp_attempt+1}: OTP mal9ach f Outlook...")
+                        app.log(f"   Attempt {otp_attempt+1}: OTP mal9ach f email...")
 
                 if not otp_matches:
                     is_batch = getattr(app, '_batch_mode', False)
