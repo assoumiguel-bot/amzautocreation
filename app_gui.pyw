@@ -1461,74 +1461,91 @@ async def run_2fa_only(app, email, out_pass):
         )
         page = await context.new_page()
 
-        # Go to Amazon sign-in
-        app.log("2FA: Signing in to Amazon...")
-        await page.goto("https://www.amazon.com/ap/signin?openid.pape.max_auth_age=0&openid.return_to=https%3A%2F%2Fwww.amazon.com%2F&openid.assoc_handle=usflex&openid.mode=checkid_setup&openid.ns=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0", wait_until="domcontentloaded", timeout=30000)
-        await page.wait_for_timeout(3000)
+        # Go DIRECTLY to 2FA URL — Amazon will redirect to sign-in automatically
+        # (Fresh browser has no cookies, so Amazon will ask for credentials first)
+        app.log("2FA: Going directly to 2FA setup (Amazon will ask to sign in)...")
+        await page.goto(AMAZON_2FA_URL, wait_until="domcontentloaded", timeout=30000)
+        await page.wait_for_timeout(4000)
 
-        # If landed on Create Account page, click "Sign in" link
-        if await page.query_selector("#ap_customer_name"):
-            app.log("2FA: Landed on Create page — clicking Sign in...")
-            for sel in ["a:has-text('Sign in')", "a:has-text('Already have an account')",
-                        "a[href*='signin']"]:
+        # Amazon should redirect to sign-in — handle login
+        for _login_try in range(5):
+            cur_url = page.url.lower()
+            # Already on 2FA page? Done with sign-in
+            if "approval" in cur_url or "settings" in cur_url or "mfa" in cur_url:
+                app.log("2FA: Already on 2FA page!")
+                break
+
+            # On Create Account page? Click "Sign in" link
+            if await page.query_selector("#ap_customer_name"):
+                app.log("2FA: Create page detected — clicking Sign in...")
+                for sel in ["a:has-text('Sign in')", "a:has-text('Already have an account')",
+                            "a[href*='signin']"]:
+                    try:
+                        el = page.locator(sel).first
+                        if await el.is_visible():
+                            await el.click()
+                            await page.wait_for_timeout(3000)
+                            break
+                    except Exception:
+                        continue
+                continue
+
+            # Email field visible? Enter email
+            email_entered = False
+            for sel in ["#ap_email", "input[type='email']", "input[placeholder*='email']", "input[placeholder*='mobile']"]:
                 try:
                     el = page.locator(sel).first
                     if await el.is_visible():
-                        await el.click()
-                        await page.wait_for_timeout(3000)
+                        await el.fill("")
+                        await el.type(email, delay=80)
+                        app.log(f"2FA: Email entered in {sel}")
+                        email_entered = True
                         break
                 except Exception:
                     continue
-
-        # Enter email
-        for sel in ["#ap_email", "input[type='email']", "input[placeholder*='email']", "input[placeholder*='mobile']"]:
-            try:
-                el = page.locator(sel).first
-                if await el.is_visible():
-                    # Make sure we're NOT on Create form
-                    name_field = await page.query_selector("#ap_customer_name")
-                    if name_field:
+            if email_entered:
+                await page.wait_for_timeout(500)
+                for btn in ["#continue", "input[type='submit']", "button:has-text('Continue')"]:
+                    try:
+                        el = page.locator(btn).first
+                        if await el.is_visible():
+                            await el.click()
+                            break
+                    except Exception:
                         continue
-                    await el.fill("")
-                    await el.type(email, delay=80)
-                    app.log(f"2FA: Email entered in {sel}")
-                    break
-            except Exception:
+                await page.wait_for_timeout(3000)
                 continue
-        await page.wait_for_timeout(500)
-        for btn in ["#continue", "input[type='submit']", "button:has-text('Continue')"] :
-            try:
-                el = page.locator(btn).first
-                if await el.is_visible():
-                    await el.click()
-                    break
-            except Exception:
-                continue
-        await page.wait_for_timeout(3000)
 
-        # Enter password
-        for sel in ["#ap_password", "input[type='password']"]:
-            try:
-                el = page.locator(sel).first
-                if await el.is_visible():
-                    await el.fill("")
-                    await el.type(out_pass, delay=80)
-                    app.log("2FA: Password entered")
-                    break
-            except Exception:
+            # Password field visible? Enter password
+            pw_entered = False
+            for sel in ["#ap_password", "input[type='password']"]:
+                try:
+                    el = page.locator(sel).first
+                    if await el.is_visible():
+                        await el.fill("")
+                        await el.type(out_pass, delay=80)
+                        app.log("2FA: Password entered")
+                        pw_entered = True
+                        break
+                except Exception:
+                    continue
+            if pw_entered:
+                await page.wait_for_timeout(500)
+                for btn in ["#signInSubmit", "input[type='submit']", "button[type='submit']", "button:has-text('Sign in')"]:
+                    try:
+                        el = page.locator(btn).first
+                        if await el.is_visible():
+                            await el.click()
+                            break
+                    except Exception:
+                        continue
+                await page.wait_for_timeout(5000)
                 continue
-        await page.wait_for_timeout(500)
-        for btn in ["#signInSubmit", "input[type='submit']", "button[type='submit']", "button:has-text('Sign in')"] :
-            try:
-                el = page.locator(btn).first
-                if await el.is_visible():
-                    await el.click()
-                    break
-            except Exception:
-                continue
-        await page.wait_for_timeout(5000)
 
-        # Now go to 2FA setup page
+            # Nothing found — wait and retry
+            await page.wait_for_timeout(2000)
+
+        # Now on 2FA setup page (or sign-in completed)
         for _2fa_try in range(3):
             if getattr(app, '_stop_flag', False):
                 break
