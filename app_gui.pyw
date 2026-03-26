@@ -1534,6 +1534,10 @@ class App:
                                    activeforeground="white", cursor="hand2", relief="raised", bd=2, padx=12, pady=6,
                                    state="disabled")
         self.next_btn.pack(side="left", padx=4)
+        self.retry_btn = tk.Button(btn_frame, text="🔄 RETRY", command=self._retry_failed,
+                                   font=("Arial", 10, "bold"), bg="#2980b9", fg="white", activebackground="#2471a3",
+                                   activeforeground="white", cursor="hand2", relief="raised", bd=2, padx=12, pady=6)
+        self.retry_btn.pack(side="left", padx=4)
         self.reset_btn = tk.Button(btn_frame, text="↺ RESET", command=self.reset_all,
                                    font=("Arial", 10, "bold"), bg="#e74c3c", fg="white", activebackground="#c0392b",
                                    activeforeground="white", cursor="hand2", relief="raised", bd=2, padx=12, pady=6)
@@ -2190,6 +2194,16 @@ class App:
         except Exception as e:
             messagebox.showerror("Error", f"Ma9dertch nqra l data:\n{e}")
             return []
+
+    def _retry_failed(self):
+        """Reload from sheets, filter non-ok accounts, and start batch"""
+        self.log("RETRY: Reloading from sheets (non-ok accounts only)...")
+        rows = self._load_csv_data()
+        if rows and self.batch_rows:
+            self.log(f"RETRY: {len(self.batch_rows)} accounts to retry")
+            self.start_batch()
+        else:
+            self.log("RETRY: No accounts to retry — all OK!")
 
     def _import_accounts(self):
         """Import accounts from CSV/Sheets into table without running batch"""
