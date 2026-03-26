@@ -1915,8 +1915,17 @@ class App:
 
             self._last_result = None
             try:
-                # Connect VPN to account's country
-                self.connect_vpn_proton_country(account_country)
+                # Connect VPN to account's country (retry with different config if fails)
+                vpn_ok = self.connect_vpn_proton_country(account_country)
+                if not vpn_ok:
+                    self.log(f"VPN {account_country} failed — trying another country...")
+                    vpn_ok = self.connect_vpn_proton_country(account_country)
+                if not vpn_ok:
+                    self.log(f"VPN still not connected — SKIP {email}")
+                    results["skip"].append(email)
+                    self._update_table_status(idx, "skip")
+                    self._update_sheet_status(email, "vpn_fail")
+                    continue
                 # Run the flow
                 flog(f"=== LAUNCHING asyncio.run for {email} ===")
                 asyncio.run(run_playwright_flow(self, prenom, nom, email, out_pass, dev_info or {}))
