@@ -1425,8 +1425,11 @@ class App:
     def __init__(self, root):
         self.root = root
         self.root.title("ProtonVPN + Amazon Developer + Outlook OTP")
-        self.root.geometry("550x700")
+        self.root.geometry("550x700+100+50")
         self.root.configure(padx=20, pady=15, bg="#f0f4f8")
+        self.root.lift()
+        self.root.attributes('-topmost', True)
+        self.root.after(1000, lambda: self.root.attributes('-topmost', False))
 
         # Lwan: hmar #c0392b, khdar #27ae60, zra9 #3498db, sfar #f1c40f
         style = ttk.Style()
@@ -1506,6 +1509,17 @@ class App:
 
         table_btn_frame = tk.Frame(root, bg="#f0f4f8")
         table_btn_frame.pack(pady=3)
+        ttk.Label(table_btn_frame, text="Filter:", foreground="#2c3e50").pack(side="left", padx=2)
+        self.filter_var = tk.StringVar(value="Empty status")
+        self.filter_combo = ttk.Combobox(table_btn_frame, textvariable=self.filter_var, width=18, state="readonly")
+        self.filter_combo['values'] = ("Empty status", "All accounts", "By country...")
+        self.filter_combo.pack(side="left", padx=3)
+        self.filter_combo.bind("<<ComboboxSelected>>", self._on_filter_change)
+        self.country_filter_var = tk.StringVar(value="")
+        self.country_filter_combo = ttk.Combobox(table_btn_frame, textvariable=self.country_filter_var, width=14, state="readonly")
+        self.country_filter_combo.pack(side="left", padx=2)
+        self.country_filter_combo.pack_forget()  # Hidden by default
+        self.country_filter_combo.bind("<<ComboboxSelected>>", self._apply_country_filter)
         self.select_all_btn = tk.Button(table_btn_frame, text="Select All", command=self._select_all_accounts, bg="#3498db", fg="white", cursor="hand2", padx=8)
         self.select_all_btn.pack(side="left", padx=3)
         self.deselect_all_btn = tk.Button(table_btn_frame, text="Deselect All", command=self._deselect_all_accounts, bg="#95a5a6", fg="white", cursor="hand2", padx=8)
@@ -1516,29 +1530,29 @@ class App:
         # === Action Buttons ===
         btn_frame = tk.Frame(root, bg="#f0f4f8")
         btn_frame.pack(pady=8)
-        self.import_btn = tk.Button(btn_frame, text="📥 IMPORT", command=self._import_accounts,
+        self.import_btn = tk.Button(btn_frame, text="IMPORT", command=self._import_accounts,
                                    font=("Arial", 10, "bold"), bg="#27ae60", fg="white", activebackground="#1e8449",
                                    activeforeground="white", cursor="hand2", relief="raised", bd=2, padx=12, pady=6)
         self.import_btn.pack(side="left", padx=4)
-        self.batch_btn = tk.Button(btn_frame, text="▶ BATCH", command=self.start_batch,
+        self.batch_btn = tk.Button(btn_frame, text="BATCH", command=self.start_batch,
                                    font=("Arial", 10, "bold"), bg="#e67e22", fg="white", activebackground="#d35400",
                                    activeforeground="white", cursor="hand2", relief="raised", bd=2, padx=12, pady=6)
         self.batch_btn.pack(side="left", padx=4)
-        self.stop_btn = tk.Button(btn_frame, text="■ STOP", command=self._stop_batch,
+        self.stop_btn = tk.Button(btn_frame, text="STOP", command=self._stop_batch,
                                    font=("Arial", 10, "bold"), bg="#c0392b", fg="white", activebackground="#e74c3c",
                                    activeforeground="white", cursor="hand2", relief="raised", bd=2, padx=12, pady=6,
                                    state="disabled")
         self.stop_btn.pack(side="left", padx=4)
-        self.next_btn = tk.Button(btn_frame, text=">> NEXT", command=self._skip_to_next,
+        self.next_btn = tk.Button(btn_frame, text="NEXT", command=self._skip_to_next,
                                    font=("Arial", 10, "bold"), bg="#8e44ad", fg="white", activebackground="#9b59b6",
                                    activeforeground="white", cursor="hand2", relief="raised", bd=2, padx=12, pady=6,
                                    state="disabled")
         self.next_btn.pack(side="left", padx=4)
-        self.retry_btn = tk.Button(btn_frame, text="🔄 RETRY", command=self._retry_failed,
+        self.retry_btn = tk.Button(btn_frame, text="RETRY", command=self._retry_failed,
                                    font=("Arial", 10, "bold"), bg="#2980b9", fg="white", activebackground="#2471a3",
                                    activeforeground="white", cursor="hand2", relief="raised", bd=2, padx=12, pady=6)
         self.retry_btn.pack(side="left", padx=4)
-        self.reset_btn = tk.Button(btn_frame, text="↺ RESET", command=self.reset_all,
+        self.reset_btn = tk.Button(btn_frame, text="RESET", command=self.reset_all,
                                    font=("Arial", 10, "bold"), bg="#e74c3c", fg="white", activebackground="#c0392b",
                                    activeforeground="white", cursor="hand2", relief="raised", bd=2, padx=12, pady=6)
         self.reset_btn.pack(side="left", padx=4)
@@ -1695,6 +1709,51 @@ class App:
             country = row.get("country", "").strip()
             status = row.get("_status", "pending")
             self.acc_tree.insert("", "end", iid=str(i), values=("[ ]", email, prenom, nom, country, status), tags=(status,))
+
+    def _on_filter_change(self, event=None):
+        """Handle filter dropdown change"""
+        val = self.filter_var.get()
+        if val == "By country...":
+            # Show country dropdown with available countries
+            countries = set()
+            if hasattr(self, '_all_rows_unfiltered') and self._all_rows_unfiltered:
+                for r in self._all_rows_unfiltered:
+                    c = r.get("country", "").strip()
+                    if c:
+                        countries.add(c)
+            self.country_filter_combo['values'] = sorted(countries)
+            self.country_filter_combo.pack(side="left", padx=2, before=self.select_all_btn)
+        else:
+            self.country_filter_combo.pack_forget()
+            self._apply_filter()
+
+    def _apply_country_filter(self, event=None):
+        """Filter table by selected country"""
+        self._apply_filter()
+
+    def _apply_filter(self):
+        """Apply current filter to loaded data"""
+        if not hasattr(self, '_all_rows_unfiltered') or not self._all_rows_unfiltered:
+            return
+        filt = self.filter_var.get()
+        rows = self._all_rows_unfiltered
+        if filt == "Empty status":
+            filtered = [r for r in rows if not r.get("status", "").strip()]
+        elif filt == "All accounts":
+            filtered = list(rows)
+        elif filt == "By country...":
+            country = self.country_filter_var.get().strip()
+            if country:
+                filtered = [r for r in rows if not r.get("status", "").strip() and r.get("country", "").strip() == country]
+            else:
+                filtered = [r for r in rows if not r.get("status", "").strip()]
+        else:
+            filtered = [r for r in rows if not r.get("status", "").strip()]
+
+        self.batch_rows = filtered
+        self.batch_progress_var.set(f"{len(filtered)} accounts (from {len(rows)})")
+        self.log(f"Filter '{filt}': {len(filtered)} accounts")
+        self._populate_table()
 
     def _remove_table_row(self, idx):
         """Remove a processed row from table (thread-safe, doesn't touch sheets)"""
@@ -2184,12 +2243,11 @@ class App:
                     reader = csv.DictReader(f)
                     rows = list(reader)
 
-            # Filter: only show accounts with empty status
-            filtered = [r for r in rows if not r.get("status", "").strip()]
-            self.batch_rows = filtered
-            self.batch_progress_var.set(f"{len(filtered)} accounts (filtered from {len(rows)})")
-            self.log(f"Loaded: {len(filtered)} accounts with empty status (total in sheet: {len(rows)})")
-            self._populate_table()
+            # Save all rows for filtering
+            self._all_rows_unfiltered = rows
+            # Apply current filter
+            self._apply_filter()
+            self.log(f"Loaded: {len(self.batch_rows)} accounts (total in sheet: {len(rows)})")
             return rows
         except Exception as e:
             messagebox.showerror("Error", f"Ma9dertch nqra l data:\n{e}")
