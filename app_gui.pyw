@@ -9,9 +9,20 @@ import subprocess
 import os
 import sys
 import asyncio
+import ctypes
 
 if sys.platform == "win32":
-    import ctypes
+    # Auto-elevate to admin for WireGuard (UAC mra wa7da bss)
+    def _is_admin():
+        try:
+            return bool(ctypes.windll.shell32.IsUserAnAdmin())
+        except Exception:
+            return False
+    if not _is_admin():
+        script = os.path.abspath(__file__)
+        ctypes.windll.shell32.ShellExecuteW(
+            None, "runas", sys.executable, f'"{script}"', None, 1)
+        sys.exit(0)
     try:
         ctypes.windll.user32.ShowWindow(ctypes.windll.kernel32.GetConsoleWindow(), 0)
     except Exception:
@@ -20,11 +31,34 @@ if sys.platform == "win32":
 COUNTRIES = [
     "United Kingdom", "Germany", "France", "Netherlands",
     "Canada", "Australia", "Japan", "Spain", "Italy", "Brazil", "India",
-    "Singapore", "Sweden", "Switzerland", "Belgium", "Poland", "Turkey"
+    "Singapore", "Sweden", "Switzerland", "Belgium", "Poland", "Turkey",
+    "Denmark", "Finland"
 ]
 
+# Map country names to WireGuard config country codes
+COUNTRY_TO_CODE = {
+    "United Kingdom": "UK", "Germany": "DE", "France": "FR", "Netherlands": "NL",
+    "Canada": "CA", "Australia": "AU", "Japan": "JP", "Spain": "ES", "Italy": "IT",
+    "Brazil": "BR", "India": "IN", "Singapore": "SG", "Sweden": "SE",
+    "Switzerland": "CH", "Belgium": "BE", "Poland": "PL", "Turkey": "TR",
+    "Denmark": "DK", "Finland": "FI", "United States": "US",
+    "Croatia": "HR", "Luxembourg": "LU", "Portugal": "PT",
+    "Austria": "AT", "Greece": "GR",
+}
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-PROTON_VPN_EXE = r"C:\Program Files\Proton\VPN\ProtonVPN.Launcher.exe"
+VPN_CONFIGS_DIR = os.path.join(BASE_DIR, "vpn_configs")
+WIREGUARD_EXE = r"C:\Program Files\WireGuard\wireguard.exe"
+WG_EXE = r"C:\Program Files\WireGuard\wg.exe"
+LOG_FILE = os.path.join(BASE_DIR, "debug.log")
+
+def flog(msg):
+    """Write to debug log file"""
+    try:
+        with open(LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(f"[{time.strftime('%H:%M:%S')}] {msg}\n")
+    except Exception:
+        pass
 AMAZON_REGISTER_URL = "https://www.amazon.com/ap/register?openid.return_to=https%3A%2F%2Fdeveloper.amazon.com%2Fdashboard&openid.assoc_handle=mas_dev_portal&openid.mode=checkid_setup&openid.ns=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0"
 
 async def pw_human_type(page, selector, text):
@@ -43,31 +77,107 @@ async def pw_human_type(page, selector, text):
     except Exception as e:
         pass
 
+USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+]
+
 async def run_playwright_flow(app, prenom, nom, email, out_pass, dev_info=None):
     if dev_info is None:
         dev_info = {}
     from playwright.async_api import async_playwright
+    from playwright_stealth import Stealth
     full_name = f"{prenom} {nom}"
     app.update_status("Amazon Developer - Create Account (Playwright)...", "orange")
-    app.log("1. Launching Chrome (Playwright)...")
+    app.log("1. Launching Chrome (Playwright + Stealth)...")
     p = await async_playwright().start()
     try:
-        browser = await p.chromium.launch(headless=False, channel="chrome")
+        browser = await p.chromium.launch(
+            headless=False, channel="chrome",
+            args=["--disable-blink-features=AutomationControlled"]
+        )
     except Exception:
-        browser = await p.chromium.launch(headless=False)
+        browser = await p.chromium.launch(
+            headless=False,
+            args=["--disable-blink-features=AutomationControlled"]
+        )
     app._current_browser = browser
+    # Store PID so we only kill THIS chrome, not user's chrome
+    try:
+        app._browser_pid = browser.process.pid
+        flog(f"Browser PID: {app._browser_pid}")
+    except Exception:
+        app._browser_pid = None
+    ua = random.choice(USER_AGENTS)
     context = await browser.new_context(
-        user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+        user_agent=ua,
+        viewport={"width": random.randint(1200, 1400), "height": random.randint(700, 900)},
+        locale="en-US",
+        timezone_id="America/New_York",
     )
     page = await context.new_page()
+    stealth = Stealth()
+    await stealth.apply_stealth_async(page)
+    # Extra anti-detection: override webdriver flag
+    await page.add_init_script("""
+        Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+        Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]});
+        window.chrome = {runtime: {}};
+    """)
     try:
-            app.log("2. Warmup Google...")
-            await page.goto("https://www.google.com", wait_until="domcontentloaded")
-            await page.wait_for_timeout(random.randint(2500, 4500))
+            # --- WARMUP: browse like a human before Amazon ---
+            app.log("2. Warmup browsing...")
+            # Google
+            for _retry in range(3):
+                try:
+                    await page.goto("https://www.google.com", wait_until="domcontentloaded", timeout=15000)
+                    break
+                except Exception as e:
+                    if _retry < 2:
+                        app.log(f"   Google retry {_retry+1}... ({e})")
+                        await asyncio.sleep(3)
+                    else:
+                        raise
+            await page.wait_for_timeout(random.randint(1500, 3000))
+            # Random mouse movements on Google
+            for _ in range(random.randint(2, 4)):
+                await page.mouse.move(random.randint(100, 800), random.randint(100, 500))
+                await page.wait_for_timeout(random.randint(300, 800))
+            # Visit Amazon homepage first (not directly register)
+            app.log("   Amazon homepage warmup...")
+            await page.goto("https://www.amazon.com", wait_until="domcontentloaded", timeout=20000)
+            await page.wait_for_timeout(random.randint(2000, 4000))
+            # Random scroll on Amazon homepage
+            await page.mouse.wheel(0, random.randint(200, 500))
+            await page.wait_for_timeout(random.randint(1000, 2000))
+            await page.mouse.move(random.randint(200, 600), random.randint(200, 400))
+            await page.wait_for_timeout(random.randint(500, 1500))
 
-            app.log("3. Direct amazon.com/ap/register (bla dev portal)...")
-            await page.goto(AMAZON_REGISTER_URL, wait_until="domcontentloaded")
+            app.log("3. Amazon register page...")
+            await page.goto(AMAZON_REGISTER_URL, wait_until="domcontentloaded", timeout=30000)
             await page.wait_for_timeout(random.randint(2500, 4000))
+
+            # If redirected to signin page, click "Create your Amazon Developer account"
+            if "signin" in page.url.lower() and "register" not in page.url.lower():
+                app.log("   Redirected to Sign In → clicking Create...")
+                for create_sel in [
+                    "a:has-text('Create your Amazon Developer account')",
+                    "a[id='createAccountSubmit']",
+                    "#auth-create-account-link",
+                    "a:has-text('Create your Amazon account')",
+                    "a:has-text('Create account')",
+                ]:
+                    try:
+                        el = page.locator(create_sel).first
+                        if await el.is_visible():
+                            await el.click()
+                            app.log(f"   Clicked: {create_sel}")
+                            await page.wait_for_timeout(3000)
+                            break
+                    except Exception:
+                        continue
 
             email_only = await page.query_selector_all("#ap_email")
             name_fields = await page.query_selector_all("#ap_customer_name")
@@ -80,6 +190,33 @@ async def run_playwright_flow(app, prenom, nom, email, out_pass, dev_info=None):
                 except Exception:
                     pass
                 await page.wait_for_timeout(random.randint(2500, 4000))
+
+                # Check "We cannot find an account" → click Create button
+                try:
+                    page_text = await page.inner_text("body") if await page.query_selector("body") else ""
+                except Exception:
+                    page_text = ""
+                if "cannot find an account" in page_text.lower() or "no account found" in page_text.lower() or "signin" in page.url.lower():
+                    app.log("   'Cannot find account' → clicking Create...")
+                    for create_sel in [
+                        "a:has-text('Create your Amazon Developer account')",
+                        "a[id='createAccountSubmit']",
+                        "#auth-create-account-link",
+                        "a:has-text('Create your Amazon account')",
+                        "a:has-text('Create a new Amazon account')",
+                        "a:has-text('Create account')",
+                        "button:has-text('Create your Amazon Developer account')",
+                        "[data-action='sign-up']",
+                    ]:
+                        try:
+                            el = page.locator(create_sel).first
+                            if await el.is_visible():
+                                await el.click()
+                                app.log(f"   Clicked: {create_sel}")
+                                await page.wait_for_timeout(3000)
+                                break
+                        except Exception:
+                            continue
 
             app.log("4. Filling form (keyboard b7al human)...")
             if await page.query_selector("#ap_customer_name"):
@@ -103,7 +240,11 @@ async def run_playwright_flow(app, prenom, nom, email, out_pass, dev_info=None):
             await page.wait_for_timeout(2000)
 
             # Check if email already exists — match EXACT Amazon error messages only
-            page_text_after = await page.inner_text("body") if await page.query_selector("body") else ""
+            try:
+                page_text_after = await page.inner_text("body") if await page.query_selector("body") else ""
+            except Exception:
+                await page.wait_for_timeout(2000)
+                page_text_after = await page.inner_text("body") if await page.query_selector("body") else ""
             page_text_lower = page_text_after.lower()
             already_exists = (
                 "there's already an account with this email" in page_text_lower or
@@ -140,9 +281,11 @@ async def run_playwright_flow(app, prenom, nom, email, out_pass, dev_info=None):
             otp_found = None
             otp_sel = None
             phone_retries = 0
+            flog("=== OTP LOOP START ===")
             for loop in range(50):
-                if app._stop_flag:
-                    app.log("STOPPED by user.")
+                if app._stop_flag or getattr(app, '_skip_flag', False):
+                    flog(f"Loop {loop}: STOP/SKIP flag set")
+                    app.log("STOPPED/NEXT by user.")
                     return
 
                 # CHECK OTP FIELD FIRST — before any skip logic!
@@ -156,8 +299,11 @@ async def run_playwright_flow(app, prenom, nom, email, out_pass, dev_info=None):
                     except Exception:
                         pass
                 if otp_found:
+                    flog(f"Loop {loop}: OTP FOUND via {otp_sel}")
                     app.log("OTP input mawjoud! (Verify email) - ghadi nft7 Outlook...")
                     break
+
+                flog(f"Loop {loop}: no OTP, URL={page.url[:80]}")
 
                 page_url_lower = page.url.lower()
                 on_otp_page = ("cvf" in page_url_lower or "/ap/mfa" in page_url_lower or
@@ -180,6 +326,7 @@ async def run_playwright_flow(app, prenom, nom, email, out_pass, dev_info=None):
                     if ("verify your identity" in visible_lower or
                         "identity verification" in visible_lower or
                         ("upload" in visible_lower and "photo" in visible_lower and "id" in visible_lower)):
+                        flog(f"Loop {loop}: IDENTITY SKIP triggered! text={visible_lower[:200]}")
                         app.log("VERIFICATION ID tlab! SKIP had l account...")
                         app.update_status("Verification ID - SKIP", "red")
                         app._last_result = "SKIP_VERIFICATION"
@@ -206,16 +353,68 @@ async def run_playwright_flow(app, prenom, nom, email, out_pass, dev_info=None):
                         create_url = "https://www.amazon.com/ap/register?openid.return_to=https%3A%2F%2Fdeveloper.amazon.com%2Fdashboard&openid.assoc_handle=mas_dev_portal&openid.mode=checkid_setup&openid.ns=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0"
                         await page.goto(create_url, wait_until="domcontentloaded")
                         await page.wait_for_timeout(3000)
-                        create_link = await page.query_selector("a[id='createAccountSubmit']") or await page.query_selector("a:has-text('Create your Amazon account')") or await page.query_selector("a:has-text('Create account')")
-                        if create_link:
-                            app.log("   Clicking 'Create account' link...")
-                            await create_link.click()
+                        # If redirected to sign-in page, click "Create your Amazon Developer account"
+                        for create_sel in [
+                            "a[id='createAccountSubmit']",
+                            "a:has-text('Create your Amazon Developer account')",
+                            "a:has-text('Create your Amazon account')",
+                            "a:has-text('Create account')",
+                            "button:has-text('Create your Amazon Developer account')",
+                        ]:
+                            try:
+                                create_link = page.locator(create_sel).first
+                                if await create_link.is_visible():
+                                    app.log(f"   Clicking '{create_sel}'...")
+                                    await create_link.click()
+                                    await page.wait_for_timeout(3000)
+                                    break
+                            except Exception:
+                                continue
+                        # Check if we're on email-first sign-in (no name field)
+                        email_field = await page.query_selector("#ap_email")
+                        name_field = await page.query_selector("#ap_customer_name")
+                        if email_field and not name_field:
+                            app.log("   Email-first sign-in flow detected after retry...")
+                            await pw_human_type(page, "#ap_email", email)
+                            await page.wait_for_timeout(1000)
+                            try:
+                                await page.click("#continue")
+                            except Exception:
+                                pass
                             await page.wait_for_timeout(3000)
+                            # Check "cannot find account" → click Create
+                            try:
+                                retry_text = await page.inner_text("body") if await page.query_selector("body") else ""
+                            except Exception:
+                                retry_text = ""
+                            if "cannot find an account" in retry_text.lower() or "no account found" in retry_text.lower():
+                                app.log("   'Cannot find account' → clicking Create...")
+                                for cs in [
+                                    "a:has-text('Create your Amazon Developer account')",
+                                    "a[id='createAccountSubmit']",
+                                    "#auth-create-account-link",
+                                    "a:has-text('Create your Amazon account')",
+                                    "a:has-text('Create a new Amazon account')",
+                                    "a:has-text('Create account')",
+                                    "button:has-text('Create your Amazon Developer account')",
+                                ]:
+                                    try:
+                                        cel = page.locator(cs).first
+                                        if await cel.is_visible():
+                                            await cel.click()
+                                            app.log(f"   Clicked: {cs}")
+                                            await page.wait_for_timeout(3000)
+                                            break
+                                    except Exception:
+                                        continue
+                        # Now fill registration form
                         app.log("Re-filling registration form...")
                         if await page.query_selector("#ap_customer_name"):
                             await pw_human_type(page, "#ap_customer_name", full_name)
                         if await page.query_selector("#ap_email"):
-                            await pw_human_type(page, "#ap_email", email)
+                            val = await page.input_value("#ap_email")
+                            if not val:
+                                await pw_human_type(page, "#ap_email", email)
                         if await page.query_selector("#ap_password"):
                             await pw_human_type(page, "#ap_password", out_pass)
                             if await page.query_selector("#ap_password_check"):
@@ -226,21 +425,46 @@ async def run_playwright_flow(app, prenom, nom, email, out_pass, dev_info=None):
                         continue
 
                 if "cvf" in page.url.lower():
-                    app.log("CAPTCHA mawjoud (bla OTP field)! Siftiha b l'id, zed OK melli tkoun sali.")
-                    app._wait_captcha_solved()
-                    await page.wait_for_timeout(2000)
-                    continue
+                    # Check if it's a CAPTCHA page — only real captcha elements
+                    is_captcha = False
+                    try:
+                        captcha_el = await page.query_selector("#captchacharacters, #auth-captcha-image, img[src*='captcha'], iframe[title*='challenge'], input[name='cvf_captcha_captcha_token']")
+                        if captcha_el:
+                            is_captcha = True
+                    except Exception:
+                        pass
+                    # Also check page text for captcha keywords
+                    if not is_captcha and loop >= 8:
+                        try:
+                            cvf_text = (await page.inner_text("body")).lower() if await page.query_selector("body") else ""
+                            if "captcha" in cvf_text or "puzzle" in cvf_text or "type the characters" in cvf_text:
+                                is_captcha = True
+                        except Exception:
+                            pass
+                    # Last resort: 15 loops (15 sec) on CVF with no OTP = probably captcha
+                    if not is_captcha and loop >= 15:
+                        is_captcha = True
+                    if is_captcha:
+                        app.log("CAPTCHA detected! SKIP had l account.")
+                        app.update_status("CAPTCHA - SKIP", "red")
+                        app._last_result = "SKIP_CAPTCHA"
+                        return
                 await page.wait_for_timeout(1000)
 
+            flog(f"OTP loop done. otp_found={otp_found is not None}, otp_sel={otp_sel}")
             if not otp_found:
+                flog("NO OTP FOUND - returning")
                 app.log("No OTP - logged in!")
                 app.update_status("DONE - No OTP needed", "green")
-                app.root.after(0, lambda: messagebox.showinfo("Najah!", "Dkhelna! Ma tlabach OTP."))
+                if not getattr(app, '_batch_mode', False):
+                    app.root.after(0, lambda: messagebox.showinfo("Najah!", "Dkhelna! Ma tlabach OTP."))
                 return
 
+            flog("=== OUTLOOK FLOW START ===")
             app.log("OTP requested! Tab 2 = Outlook...")
             otp = None
             try:
+                flog("Opening new page for Outlook...")
                 page_outlook = await context.new_page()
                 app.log("1. Dkhl Outlook - login.live.com...")
                 await page_outlook.goto("https://login.live.com/", wait_until="domcontentloaded", timeout=30000)
@@ -357,81 +581,153 @@ async def run_playwright_flow(app, prenom, nom, email, out_pass, dev_info=None):
                         continue
                 await page_outlook.wait_for_timeout(6000)
 
-                # Click 3la l-email dyal Amazon
-                amazon_clicked = False
-                for sel in ["[aria-label*='Amazon'], [aria-label*='Verify your new Amazon']",
-                            "div[role='listitem']", "div[role='option']", "[data-convid]"]:
-                    try:
-                        rows = await page_outlook.query_selector_all(sel)
-                        for row in rows[:10]:
-                            txt = await row.text_content()
-                            if txt and ("amazon" in txt.lower() or "verify" in txt.lower()):
-                                await row.click()
-                                app.log(f"   Klikina: {txt[:50].strip()}")
-                                amazon_clicked = True
-                                await page_outlook.wait_for_timeout(5000)
+                # OTP search with resend retry (max 3 attempts)
+                otp_matches = []
+                for otp_attempt in range(3):
+                    if otp_attempt > 0:
+                        # Resend OTP from Amazon page
+                        app.log(f"   OTP attempt {otp_attempt+1}/3 - Resend OTP mn Amazon...")
+                        await page.bring_to_front()
+                        await page.wait_for_timeout(1000)
+                        resent = False
+                        for resend_sel in [
+                            "a:has-text('Resend OTP')",
+                            "a:has-text('Resend the code')",
+                            "a:has-text('Send again')",
+                            "a:has-text('Resend')",
+                            "button:has-text('Resend OTP')",
+                            "button:has-text('Resend')",
+                            "button:has-text('Send again')",
+                            "a[id*='resend']",
+                            "button[id*='resend']",
+                            "#cvf-resend-link",
+                        ]:
+                            try:
+                                el = page.locator(resend_sel).first
+                                if await el.is_visible():
+                                    await el.click()
+                                    app.log(f"   Clicked resend: {resend_sel}")
+                                    resent = True
+                                    break
+                            except Exception:
+                                continue
+                        if not resent:
+                            app.log("   Resend button mal9ach!")
+                        await page.wait_for_timeout(8000)
+                        # Go back to Outlook
+                        await page_outlook.bring_to_front()
+                        await page_outlook.wait_for_timeout(2000)
+                        # Refresh inbox
+                        await page_outlook.goto("https://outlook.live.com/mail/0/inbox", wait_until="domcontentloaded", timeout=30000)
+                        await page_outlook.wait_for_timeout(5000)
+                        # Search Amazon again
+                        for sel in ["#topSearchInput", "input[aria-label*='Search']", "input[placeholder*='Search']", "input[placeholder*='Rechercher']"]:
+                            try:
+                                s = page_outlook.locator(sel).first
+                                if await s.is_visible():
+                                    await s.click()
+                                    await page_outlook.wait_for_timeout(500)
+                                    await page_outlook.keyboard.type("Amazon", delay=80)
+                                    await page_outlook.keyboard.press("Enter")
+                                    break
+                            except Exception:
+                                continue
+                        await page_outlook.wait_for_timeout(6000)
+
+                    # Click 3la l-email dyal Amazon
+                    amazon_clicked = False
+                    for sel in ["[aria-label*='Amazon'], [aria-label*='Verify your new Amazon']",
+                                "div[role='listitem']", "div[role='option']", "[data-convid]"]:
+                        try:
+                            rows = await page_outlook.query_selector_all(sel)
+                            for row in rows[:10]:
+                                txt = await row.text_content()
+                                if txt and ("amazon" in txt.lower() or "verify" in txt.lower()):
+                                    await row.click()
+                                    app.log(f"   Klikina: {txt[:50].strip()}")
+                                    amazon_clicked = True
+                                    await page_outlook.wait_for_timeout(5000)
+                                    break
+                            if amazon_clicked:
                                 break
-                        if amazon_clicked:
-                            break
-                    except Exception:
-                        continue
+                        except Exception:
+                            continue
 
-                await page_outlook.wait_for_timeout(3000)
+                    await page_outlook.wait_for_timeout(3000)
 
-                # OTP: nakhdo HTML dyal l-page ba3d ma fta7na email (b7al backup)
-                msg_body = await page_outlook.content()
-                app.log("   Qrina HTML dyal page (b7al backup)")
+                    # OTP: nakhdo HTML dyal l-page
+                    msg_body = await page_outlook.content()
+                    app.log("   Qrina HTML dyal page")
 
-                # Nawwlan: l9 OTP 9dam "One Time Password" wla "security code" context
-                otp_context = re.search(r'(?:One Time Password|security code|OTP)[^\d]{0,100}(\d{6})', msg_body, re.IGNORECASE | re.DOTALL)
-                if otp_context:
-                    otp_matches = [otp_context.group(1)]
-                    app.log(f"   OTP mn context: {otp_matches[0]}")
-                else:
-                    # Strip CSS colors (#rrggbb) 9bal regex
-                    clean_body = re.sub(r'#[0-9a-fA-F]{6}', '', msg_body)
-                    otp_matches = re.findall(r"\b\d{6}\b", clean_body)
-                    if not otp_matches:
-                        otp_matches = re.findall(r"\b\d{4,8}\b", clean_body)
+                    # L9 OTP 9dam "One Time Password" wla "security code"
+                    otp_context = re.search(r'(?:One Time Password|security code|OTP)[^\d]{0,100}(\d{6})', msg_body, re.IGNORECASE | re.DOTALL)
+                    if otp_context:
+                        otp_matches = [otp_context.group(1)]
+                        app.log(f"   OTP mn context: {otp_matches[0]}")
+                        break
+                    else:
+                        clean_body = re.sub(r'#[0-9a-fA-F]{6}', '', msg_body)
+                        otp_matches = re.findall(r"\b\d{6}\b", clean_body)
+                        if not otp_matches:
+                            otp_matches = re.findall(r"\b\d{4,8}\b", clean_body)
+                    if otp_matches:
+                        app.log(f"   OTP l9inah: {otp_matches[0]}")
+                        break
+                    else:
+                        app.log(f"   Attempt {otp_attempt+1}: OTP mal9ach f Outlook...")
+
                 if not otp_matches:
-                    app.log("   Mal9inach OTP automatic - ktebha b l'id...")
-                    otp_event = threading.Event()
-                    otp_manual = [None]
-                    def _ask_otp():
-                        val = tk.simpledialog.askstring("OTP Manual", "Mal9inach OTP automatic.\nKteb OTP b l'id (6 ar9am):")
-                        otp_manual[0] = val
-                        otp_event.set()
-                    app.root.after(0, _ask_otp)
-                    otp_event.wait(timeout=120)
-                    if not otp_manual[0]:
-                        raise Exception("OTP ma dakhalch.")
-                    otp_matches = [otp_manual[0].strip()]
+                    is_batch = getattr(app, '_batch_mode', False)
+                    if is_batch:
+                        app.log("   OTP mal9ach ba3d 3 attempts - SKIP")
+                        raise Exception("OTP not found after 3 resend attempts")
+                    else:
+                        app.log("   Mal9inach OTP automatic - ktebha b l'id...")
+                        otp_event = threading.Event()
+                        otp_manual = [None]
+                        def _ask_otp():
+                            val = tk.simpledialog.askstring("OTP Manual", "Mal9inach OTP automatic.\nKteb OTP b l'id (6 ar9am):")
+                            otp_manual[0] = val
+                            otp_event.set()
+                        app.root.after(0, _ask_otp)
+                        otp_event.wait(timeout=120)
+                        if not otp_manual[0]:
+                            raise Exception("OTP ma dakhalch.")
+                        otp_matches = [otp_manual[0].strip()]
                 otp = otp_matches[0]
                 app.log(f"4. Khdina 6 ar9am mn l-message: {otp}")
                 with open(os.path.join(BASE_DIR, "otp.txt"), "w") as f:
                     f.write(otp)
             except Exception as outlook_err:
                 import traceback
+                flog(f"OUTLOOK ERROR: {outlook_err}")
+                flog(traceback.format_exc())
                 app.log(f"OUTLOOK ERROR: {outlook_err}")
                 app.log(traceback.format_exc()[:500])
-                # If OTP not found via Outlook, ask manually
+                # If OTP not found via Outlook, ask manually (or skip in batch)
                 if not otp:
-                    app.log("Outlook ma khdamch - kteb OTP b l'id...")
-                    otp_event = threading.Event()
-                    otp_manual = [None]
-                    def _ask_otp_fallback():
-                        val = tk.simpledialog.askstring("OTP Manual", "Outlook ma khdamch.\nKteb OTP b l'id (6 ar9am):")
-                        otp_manual[0] = val
-                        otp_event.set()
-                    app.root.after(0, _ask_otp_fallback)
-                    otp_event.wait(timeout=120)
-                    if otp_manual[0]:
-                        otp = otp_manual[0].strip()
-                    else:
-                        app.log("OTP ma dakhalch - SKIP")
+                    is_batch = getattr(app, '_batch_mode', False)
+                    if is_batch:
+                        app.log("Outlook ma khdamch - SKIP (batch mode)")
                         app._last_result = "SKIP_VERIFICATION"
+                    else:
+                        app.log("Outlook ma khdamch - kteb OTP b l'id...")
+                        otp_event = threading.Event()
+                        otp_manual = [None]
+                        def _ask_otp_fallback():
+                            val = tk.simpledialog.askstring("OTP Manual", "Outlook ma khdamch.\nKteb OTP b l'id (6 ar9am):")
+                            otp_manual[0] = val
+                            otp_event.set()
+                        app.root.after(0, _ask_otp_fallback)
+                        otp_event.wait(timeout=120)
+                        if otp_manual[0]:
+                            otp = otp_manual[0].strip()
+                        else:
+                            app.log("OTP ma dakhalch - SKIP")
+                            app._last_result = "SKIP_VERIFICATION"
 
             # Paste OTP into Amazon if we have it
+            flog(f"OTP paste check: otp={otp}, otp_found={otp_found is not None}, otp_sel={otp_sel}")
             if otp and otp_found and otp_sel:
                 app.log("Retour Amazon - pasting OTP...")
                 await page.bring_to_front()
@@ -740,40 +1036,47 @@ async def run_playwright_flow(app, prenom, nom, email, out_pass, dev_info=None):
 
     except Exception as e:
         import traceback
+        flog(f"OUTER EXCEPTION: {type(e).__name__}: {e}")
+        flog(traceback.format_exc())
         if "TargetClosedError" in type(e).__name__ or "closed" in str(e).lower():
             app.log("Chrome tsad - normal.")
         else:
             app.log(f"Khata: {e}")
             app.log(traceback.format_exc()[:500])
     finally:
-        # In batch mode: close browser cleanly and move on
-        # In single mode: wait for user to close
+        flog("=== FINALLY BLOCK ===")
         is_batch = getattr(app, '_batch_mode', False)
-        try:
-            if is_batch:
-                app.log("Closing Chrome...")
+        if is_batch:
+            app.log("Closing Chrome...")
+            # Kill only bot's Chrome by PID, not user's Chrome
+            _pid = getattr(app, '_browser_pid', None)
+            if _pid:
                 try:
-                    await browser.close()
+                    import subprocess as _sp
+                    _sp.run(["taskkill", "/F", "/T", "/PID", str(_pid)], capture_output=True, timeout=5)
+                    flog(f"Killed bot Chrome PID {_pid}")
                 except Exception:
                     pass
-                try:
-                    await p.stop()
-                except Exception:
-                    pass
-                await asyncio.sleep(2)
-            else:
+                app._browser_pid = None
+            try:
+                await asyncio.wait_for(p.stop(), timeout=5)
+            except Exception:
+                pass
+            flog("=== FINALLY DONE (batch) ===")
+        else:
+            try:
                 app.log("Chrome m7all - Siftu b l'id (X) melli t7ab.")
                 if browser.is_connected():
                     while browser.is_connected():
                         await asyncio.sleep(1)
-        except Exception:
-            pass
+            except Exception:
+                pass
 
 class App:
     def __init__(self, root):
         self.root = root
         self.root.title("ProtonVPN + Amazon Developer + Outlook OTP")
-        self.root.geometry("500x900")
+        self.root.geometry("550x700")
         self.root.configure(padx=20, pady=15, bg="#f0f4f8")
 
         # Lwan: hmar #c0392b, khdar #27ae60, zra9 #3498db, sfar #f1c40f
@@ -785,123 +1088,322 @@ class App:
         ttk.Label(root, text="ProtonVPN → Amazon Developer → Outlook OTP", font=("Arial", 12, "bold"), foreground="#c0392b").pack(pady=5)
 
         # === 1. VPN (zra9) ===
-        f_vpn = ttk.LabelFrame(root, text=" 1. Proton VPN (lawal) ", padding=8)
+        f_vpn = ttk.LabelFrame(root, text=" 1. VPN WireGuard (lawal) ", padding=8)
         f_vpn.pack(fill="x", pady=5)
         ttk.Label(f_vpn, text="Mode VPN:", foreground="#2980b9").grid(row=0, column=0, sticky="w", pady=2)
         self.vpn_mode = ttk.Combobox(f_vpn, width=32, state="readonly")
-        self.vpn_mode['values'] = ("Auto (Proton VPN)", "Connect b l'id (Manual)")
+        self.vpn_mode['values'] = ("Auto (WireGuard)", "Connect b l'id (Manual)")
         self.vpn_mode.current(0)
         self.vpn_mode.grid(row=0, column=1, pady=2, padx=5)
         ttk.Label(f_vpn, text="Dawla (Country):", foreground="#2980b9").grid(row=1, column=0, sticky="w", pady=2)
         self.vpn_country = ttk.Entry(f_vpn, width=37)
-        self.vpn_country.insert(0, "United Kingdom")
+        self.vpn_country.insert(0, "Germany")
         self.vpn_country.grid(row=1, column=1, pady=2, padx=5)
+        self._active_tunnel = None
 
-        # === 2. Amazon Developer - Create Account ===
-        f_acc = ttk.LabelFrame(root, text=" 2. Amazon Developer - Create Account (3amar info) ", padding=8)
-        f_acc.pack(fill="x", pady=5)
-        ttk.Label(f_acc, text="Prenom:", foreground="#27ae60").grid(row=0, column=0, sticky="w", pady=2)
-        self.prenom = ttk.Entry(f_acc, width=40)
-        self.prenom.grid(row=0, column=1, pady=2, padx=5)
-        ttk.Label(f_acc, text="Nom:", foreground="#27ae60").grid(row=1, column=0, sticky="w", pady=2)
-        self.nom = ttk.Entry(f_acc, width=40)
-        self.nom.grid(row=1, column=1, pady=2, padx=5)
-        ttk.Label(f_acc, text="Email (Amazon = Outlook):", foreground="#27ae60").grid(row=2, column=0, sticky="w", pady=2)
-        self.email = ttk.Entry(f_acc, width=40)
-        self.email.grid(row=2, column=1, pady=2, padx=5)
-        ttk.Label(f_acc, text="Password:", foreground="#27ae60").grid(row=3, column=0, sticky="w", pady=2)
-        self.outlook_pass = ttk.Entry(f_acc, width=40, show="*")
-        self.outlook_pass.grid(row=3, column=1, pady=2, padx=5)
-        ttk.Label(f_acc, text="(OTP ywsel f Outlook - nakhdoha f nouvel onglet)", font=("Arial", 8), foreground="#666").grid(row=4, column=1, sticky="w")
-        f_btns = tk.Frame(f_acc, bg="#f0f4f8")
-        f_btns.grid(row=5, column=0, columnspan=2, pady=4)
-        self.load_btn = tk.Button(f_btns, text="Load", command=self.load_profile, width=8, bg="#3498db", fg="white", cursor="hand2")
-        self.load_btn.pack(side="left", padx=2)
-        self.save_btn = tk.Button(f_btns, text="Save", command=self.save_profile, width=8, bg="#27ae60", fg="white", cursor="hand2")
-        self.save_btn.pack(side="left", padx=2)
-
-        # === 3. Developer Registration ===
-        f_dev = ttk.LabelFrame(root, text=" 3. Amazon Developer Registration (3amar l-compte) ", padding=8)
-        f_dev.pack(fill="x", pady=5)
-        ttk.Label(f_dev, text="Business name:", foreground="#8e44ad").grid(row=0, column=0, sticky="w", pady=2)
-        self.dev_business = ttk.Entry(f_dev, width=40)
-        self.dev_business.grid(row=0, column=1, pady=2, padx=5)
-        ttk.Label(f_dev, text="Country:", foreground="#8e44ad").grid(row=1, column=0, sticky="w", pady=2)
-        self.dev_country = ttk.Combobox(f_dev, width=37, values=COUNTRIES)
-        self.dev_country.set("United Kingdom")
-        self.dev_country.grid(row=1, column=1, pady=2, padx=5)
-        ttk.Label(f_dev, text="Address line 1:", foreground="#8e44ad").grid(row=2, column=0, sticky="w", pady=2)
-        self.dev_address = ttk.Entry(f_dev, width=40)
-        self.dev_address.grid(row=2, column=1, pady=2, padx=5)
-        ttk.Label(f_dev, text="City:", foreground="#8e44ad").grid(row=3, column=0, sticky="w", pady=2)
-        self.dev_city = ttk.Entry(f_dev, width=40)
-        self.dev_city.grid(row=3, column=1, pady=2, padx=5)
-        ttk.Label(f_dev, text="Postal code:", foreground="#8e44ad").grid(row=4, column=0, sticky="w", pady=2)
-        self.dev_zip = ttk.Entry(f_dev, width=40)
-        self.dev_zip.grid(row=4, column=1, pady=2, padx=5)
-        ttk.Label(f_dev, text="State/Province:", foreground="#8e44ad").grid(row=5, column=0, sticky="w", pady=2)
-        self.dev_state = ttk.Entry(f_dev, width=40)
-        self.dev_state.grid(row=5, column=1, pady=2, padx=5)
-        ttk.Label(f_dev, text="Phone CC (+1, +212...):", foreground="#8e44ad").grid(row=6, column=0, sticky="w", pady=2)
-        self.dev_phone_cc = ttk.Entry(f_dev, width=10)
-        self.dev_phone_cc.insert(0, "+1")
-        self.dev_phone_cc.grid(row=6, column=1, pady=2, padx=5, sticky="w")
-        ttk.Label(f_dev, text="Phone number:", foreground="#8e44ad").grid(row=7, column=0, sticky="w", pady=2)
-        self.dev_phone = ttk.Entry(f_dev, width=40)
-        self.dev_phone.grid(row=7, column=1, pady=2, padx=5)
-
-        # === Batch CSV / Google Sheets ===
-        f_batch = ttk.LabelFrame(root, text=" 4. Batch Mode (CSV / Google Sheets) ", padding=8)
+        # === 2. Batch CSV / Google Sheets ===
+        f_batch = ttk.LabelFrame(root, text=" 2. Batch Mode (CSV / Google Sheets) ", padding=8)
         f_batch.pack(fill="x", pady=5)
         self.csv_path_var = tk.StringVar()
-        ttk.Label(f_batch, text="Google Sheets URL\nou CSV File:", foreground="#e67e22").grid(row=0, column=0, sticky="w", pady=2)
+        ttk.Label(f_batch, text="Google Sheet URL\nou CSV File:", foreground="#e67e22").grid(row=0, column=0, sticky="w", pady=2)
         self.csv_entry = ttk.Entry(f_batch, width=30, textvariable=self.csv_path_var)
         self.csv_entry.grid(row=0, column=1, pady=2, padx=5)
-        self.csv_browse_btn = tk.Button(f_batch, text="Browse", command=self._browse_csv, bg="#e67e22", fg="white", cursor="hand2")
-        self.csv_browse_btn.grid(row=0, column=2, padx=3)
-        self.sheets_refresh_btn = tk.Button(f_batch, text="Refresh", command=self._refresh_sheets, bg="#3498db", fg="white", cursor="hand2")
-        self.sheets_refresh_btn.grid(row=1, column=2, padx=3)
-        self.batch_progress_var = tk.StringVar(value="Paste Google Sheets published CSV link wla Browse CSV file")
+        csv_btn_frame = tk.Frame(f_batch, bg="#f0f4f8")
+        csv_btn_frame.grid(row=0, column=2, rowspan=2, padx=3)
+        self.csv_browse_btn = tk.Button(csv_btn_frame, text="Browse", command=self._browse_csv, bg="#e67e22", fg="white", cursor="hand2")
+        self.csv_browse_btn.pack(pady=1)
+        self.sheets_refresh_btn = tk.Button(csv_btn_frame, text="Refresh", command=self._refresh_sheets, bg="#3498db", fg="white", cursor="hand2")
+        self.sheets_refresh_btn.pack(pady=1)
+        self.batch_progress_var = tk.StringVar(value="Paste Google Sheet URL wla Browse CSV file")
         ttk.Label(f_batch, textvariable=self.batch_progress_var, foreground="#e67e22", font=("Arial", 8)).grid(row=1, column=0, columnspan=2, sticky="w", pady=2)
 
+        # === Accounts Table ===
+        f_table = ttk.LabelFrame(root, text=" Accounts Table ", padding=5)
+        f_table.pack(fill="both", expand=True, pady=5)
+
+        table_cols = ("check", "email", "prenom", "nom", "country", "status")
+        self.acc_tree = ttk.Treeview(f_table, columns=table_cols, show="headings", height=8, selectmode="browse")
+        self.acc_tree.heading("check", text="[x]")
+        self.acc_tree.heading("email", text="Email")
+        self.acc_tree.heading("prenom", text="Prenom")
+        self.acc_tree.heading("nom", text="Nom")
+        self.acc_tree.heading("country", text="Country")
+        self.acc_tree.heading("status", text="Status")
+        self.acc_tree.column("check", width=30, minwidth=30, anchor="center")
+        self.acc_tree.column("email", width=155, minwidth=100)
+        self.acc_tree.column("prenom", width=65, minwidth=50)
+        self.acc_tree.column("nom", width=65, minwidth=50)
+        self.acc_tree.column("country", width=85, minwidth=60)
+        self.acc_tree.column("status", width=65, minwidth=50)
+
+        tree_scroll = ttk.Scrollbar(f_table, orient="vertical", command=self.acc_tree.yview)
+        self.acc_tree.configure(yscrollcommand=tree_scroll.set)
+        self.acc_tree.pack(side="left", fill="both", expand=True)
+        tree_scroll.pack(side="right", fill="y")
+
+        # Click row to toggle checkbox
+        self.acc_tree.bind("<Button-1>", self._toggle_check)
+
+        # Table style: color rows by status
+        self.acc_tree.tag_configure("ok", background="#d5f5e3")
+        self.acc_tree.tag_configure("skip", background="#fadbd8")
+        self.acc_tree.tag_configure("fail", background="#f9e79f")
+        self.acc_tree.tag_configure("running", background="#f9e74a")
+        self.acc_tree.tag_configure("pending", background="white")
+        self.acc_tree.tag_configure("checked", background="#d4efdf")
+
+        # Track checked rows
+        self._checked_rows = set()
+
+        table_btn_frame = tk.Frame(root, bg="#f0f4f8")
+        table_btn_frame.pack(pady=3)
+        self.select_all_btn = tk.Button(table_btn_frame, text="Select All", command=self._select_all_accounts, bg="#3498db", fg="white", cursor="hand2", padx=8)
+        self.select_all_btn.pack(side="left", padx=3)
+        self.deselect_all_btn = tk.Button(table_btn_frame, text="Deselect All", command=self._deselect_all_accounts, bg="#95a5a6", fg="white", cursor="hand2", padx=8)
+        self.deselect_all_btn.pack(side="left", padx=3)
+        self.delete_sel_btn = tk.Button(table_btn_frame, text="Delete Selected", command=self._delete_selected_accounts, bg="#e74c3c", fg="white", cursor="hand2", padx=8)
+        self.delete_sel_btn.pack(side="left", padx=3)
+
+        # === Action Buttons ===
         btn_frame = tk.Frame(root, bg="#f0f4f8")
-        btn_frame.pack(pady=12)
-        self.start_btn = tk.Button(btn_frame, text="▶ START", command=self.start_all,
-                                   font=("Arial", 10, "bold"), bg="#27ae60", fg="white", activebackground="#2ecc71",
-                                   activeforeground="white", cursor="hand2", relief="raised", bd=2, padx=15, pady=8)
-        self.start_btn.pack(side="left", padx=5)
+        btn_frame.pack(pady=8)
+        self.import_btn = tk.Button(btn_frame, text="📥 IMPORT", command=self._import_accounts,
+                                   font=("Arial", 10, "bold"), bg="#27ae60", fg="white", activebackground="#1e8449",
+                                   activeforeground="white", cursor="hand2", relief="raised", bd=2, padx=12, pady=6)
+        self.import_btn.pack(side="left", padx=4)
         self.batch_btn = tk.Button(btn_frame, text="▶ BATCH", command=self.start_batch,
                                    font=("Arial", 10, "bold"), bg="#e67e22", fg="white", activebackground="#d35400",
-                                   activeforeground="white", cursor="hand2", relief="raised", bd=2, padx=15, pady=8)
-        self.batch_btn.pack(side="left", padx=5)
+                                   activeforeground="white", cursor="hand2", relief="raised", bd=2, padx=12, pady=6)
+        self.batch_btn.pack(side="left", padx=4)
+        self.stop_btn = tk.Button(btn_frame, text="■ STOP", command=self._stop_batch,
+                                   font=("Arial", 10, "bold"), bg="#c0392b", fg="white", activebackground="#e74c3c",
+                                   activeforeground="white", cursor="hand2", relief="raised", bd=2, padx=12, pady=6,
+                                   state="disabled")
+        self.stop_btn.pack(side="left", padx=4)
+        self.next_btn = tk.Button(btn_frame, text=">> NEXT", command=self._skip_to_next,
+                                   font=("Arial", 10, "bold"), bg="#8e44ad", fg="white", activebackground="#9b59b6",
+                                   activeforeground="white", cursor="hand2", relief="raised", bd=2, padx=12, pady=6,
+                                   state="disabled")
+        self.next_btn.pack(side="left", padx=4)
         self.reset_btn = tk.Button(btn_frame, text="↺ RESET", command=self.reset_all,
                                    font=("Arial", 10, "bold"), bg="#e74c3c", fg="white", activebackground="#c0392b",
-                                   activeforeground="white", cursor="hand2", relief="raised", bd=2, padx=15, pady=8)
-        self.reset_btn.pack(side="left", padx=5)
+                                   activeforeground="white", cursor="hand2", relief="raised", bd=2, padx=12, pady=6)
+        self.reset_btn.pack(side="left", padx=4)
         self._stop_flag = False
+        self._skip_flag = False
         self._batch_mode = False
         self._current_browser = None
+        self._batch_remaining = None
 
         ttk.Label(root, text="Activity Log:", foreground="#f1c40f").pack(anchor="w")
-        self.log_text = tk.Text(root, height=10, width=58, font=("Consolas", 8), state="disabled", bg="#fffde7", fg="#2c3e50", insertbackground="#c0392b")
-        self.log_text.pack(pady=5)
+        self.log_text = tk.Text(root, height=8, width=58, font=("Consolas", 8), state="disabled", bg="#fffde7", fg="#2c3e50", insertbackground="#c0392b")
+        self.log_text.pack(pady=3)
 
         self.status_var = tk.StringVar()
         self.status_var.set("Wajed...")
         self.status_label = ttk.Label(root, textvariable=self.status_var, foreground="#3498db", font=("Arial", 9, "italic"))
         self.status_label.pack()
 
+    def _kill_bot_chrome(self):
+        """Kill only the Chrome launched by the bot, not user's Chrome"""
+        pid = getattr(self, '_browser_pid', None)
+        if pid:
+            try:
+                subprocess.run(["taskkill", "/F", "/T", "/PID", str(pid)], capture_output=True, timeout=5)
+                flog(f"Killed Chrome PID {pid} (tree)")
+            except Exception:
+                pass
+            self._browser_pid = None
+        self._current_browser = None
+
     def log(self, msg):
-        self.log_text.configure(state="normal")
-        self.log_text.insert(tk.END, f"[*] {msg}\n")
-        self.log_text.see(tk.END)
-        self.log_text.configure(state="disabled")
-        self.root.update()
+        def _do():
+            try:
+                self.log_text.configure(state="normal")
+                self.log_text.insert(tk.END, f"[*] {msg}\n")
+                self.log_text.see(tk.END)
+                self.log_text.configure(state="disabled")
+            except Exception:
+                pass
+        self.root.after(0, _do)
 
     def update_status(self, text, color="blue"):
-        self.status_var.set(text)
-        self.status_label.configure(foreground=color)
-        self.root.update()
+        def _do():
+            try:
+                self.status_var.set(text)
+                self.status_label.configure(foreground=color)
+            except Exception:
+                pass
+        self.root.after(0, _do)
+
+    def _update_sheet_status(self, email, status):
+        """Update status in Google Sheets in background thread"""
+        def _do_update():
+            try:
+                sheet_id = self._get_sheet_id()
+                if not sheet_id:
+                    return
+
+                flog(f"Sheet update: email={email}, status={status}, sheet_id={sheet_id}")
+
+                creds_path = os.path.join(BASE_DIR, "credentials.json")
+                if not os.path.exists(creds_path):
+                    flog(f"credentials.json not found")
+                    return
+
+                import gspread
+                from google.oauth2.service_account import Credentials
+
+                scopes = ["https://www.googleapis.com/auth/spreadsheets"]
+                creds = Credentials.from_service_account_file(creds_path, scopes=scopes)
+                gc = gspread.authorize(creds)
+                flog(f"Sheet ID: {sheet_id}")
+                sh = gc.open_by_key(sheet_id)
+                ws = sh.sheet1
+
+                all_values = ws.get_all_values()
+                header = [h.lower().strip() for h in all_values[0]]
+
+                if "status" in header:
+                    status_col = header.index("status") + 1
+                else:
+                    status_col = len(header) + 1
+                    ws.update_cell(1, status_col, "status")
+
+                email_col = header.index("email") + 1 if "email" in header else 1
+                for row_idx, row_vals in enumerate(all_values[1:], start=2):
+                    cell_email = row_vals[email_col - 1].strip() if email_col - 1 < len(row_vals) else ""
+                    if cell_email.lower() == email.lower():
+                        ws.update_cell(row_idx, status_col, status.upper())
+                        self.log(f"  Sheet updated: {email} → {status.upper()}")
+                        flog(f"Sheet updated: row {row_idx}, {email} → {status}")
+                        return
+                flog(f"Email {email} not found in sheet")
+            except Exception as e:
+                flog(f"Sheet update error: {e}")
+        # Run in background so it doesn't block batch
+        threading.Thread(target=_do_update, daemon=True).start()
+
+    # --- Table methods ---
+    def _populate_table(self):
+        """Fill accounts table from self.batch_rows"""
+        for item in self.acc_tree.get_children():
+            self.acc_tree.delete(item)
+        self._checked_rows = set()
+        if not hasattr(self, 'batch_rows') or not self.batch_rows:
+            return
+        for i, row in enumerate(self.batch_rows):
+            email = row.get("email", "").strip()
+            prenom = row.get("prenom", row.get("first_name", "")).strip()
+            nom = row.get("nom", row.get("last_name", "")).strip()
+            country = row.get("country", "").strip()
+            status = row.get("_status", "pending")
+            self.acc_tree.insert("", "end", iid=str(i), values=("[ ]", email, prenom, nom, country, status), tags=(status,))
+
+    def _remove_table_row(self, idx):
+        """Remove a processed row from table (thread-safe, doesn't touch sheets)"""
+        def _do():
+            iid = str(idx)
+            try:
+                if self.acc_tree.exists(iid):
+                    self.acc_tree.delete(iid)
+                self._checked_rows.discard(idx)
+            except Exception:
+                pass
+        self.root.after(0, _do)
+
+    def _update_table_status(self, idx, status):
+        """Update status column and color for a row (thread-safe)"""
+        def _do():
+            iid = str(idx)
+            try:
+                vals = list(self.acc_tree.item(iid, "values"))
+                vals[5] = status
+                self.acc_tree.item(iid, values=vals, tags=(status,))
+                self.acc_tree.see(iid)
+            except Exception:
+                pass
+        self.root.after(0, _do)
+
+    def _toggle_check(self, event):
+        """Toggle checkbox when clicking a row"""
+        region = self.acc_tree.identify_region(event.x, event.y)
+        if region == "heading":
+            return
+        iid = self.acc_tree.identify_row(event.y)
+        if not iid:
+            return
+        idx = int(iid)
+        vals = list(self.acc_tree.item(iid, "values"))
+        if idx in self._checked_rows:
+            self._checked_rows.discard(idx)
+            vals[0] = "[ ]"
+            status = vals[5] if len(vals) > 5 else "pending"
+            self.acc_tree.item(iid, values=vals, tags=(status,))
+        else:
+            self._checked_rows.add(idx)
+            vals[0] = "[X]"
+            self.acc_tree.item(iid, values=vals, tags=("checked",))
+        count = len(self._checked_rows)
+        total = len(getattr(self, 'batch_rows', []))
+        if count > 0:
+            self.batch_progress_var.set(f"{count} selected / {total} total")
+        else:
+            self.batch_progress_var.set(f"{total} accounts loaded")
+
+    def _select_all_accounts(self):
+        for iid in self.acc_tree.get_children():
+            idx = int(iid)
+            self._checked_rows.add(idx)
+            vals = list(self.acc_tree.item(iid, "values"))
+            vals[0] = "[X]"
+            self.acc_tree.item(iid, values=vals, tags=("checked",))
+        total = len(getattr(self, 'batch_rows', []))
+        self.batch_progress_var.set(f"{len(self._checked_rows)} selected / {total} total")
+
+    def _deselect_all_accounts(self):
+        for iid in self.acc_tree.get_children():
+            vals = list(self.acc_tree.item(iid, "values"))
+            vals[0] = "[ ]"
+            status = vals[5] if len(vals) > 5 else "pending"
+            self.acc_tree.item(iid, values=vals, tags=(status,))
+        self._checked_rows.clear()
+        total = len(getattr(self, 'batch_rows', []))
+        self.batch_progress_var.set(f"{total} accounts loaded")
+
+    def _delete_selected_accounts(self):
+        if not self._checked_rows:
+            messagebox.showinfo("Info", "Ma selectiti hta account! Click 3la row bach t-selectih.")
+            return
+        count = len(self._checked_rows)
+        if not messagebox.askyesno("Delete", f"Bghiti t7yad {count} account(s)?"):
+            return
+        indices = sorted(self._checked_rows, reverse=True)
+        for idx in indices:
+            if hasattr(self, 'batch_rows') and idx < len(self.batch_rows):
+                self.batch_rows.pop(idx)
+        self._populate_table()
+        remaining = len(getattr(self, 'batch_rows', []))
+        self.batch_progress_var.set(f"{remaining} accounts loaded")
+        self.log(f"Deleted {count} account(s). {remaining} remaining.")
+
+    def _stop_batch(self):
+        """Stop batch processing immediately"""
+        self._stop_flag = True
+        self._skip_flag = True
+        self.log("STOP!")
+        self.update_status("STOPPED", "red")
+        self.stop_btn.configure(state="disabled")
+        self.next_btn.configure(state="disabled")
+        self._kill_bot_chrome()
+        self._wg_disconnect()
+
+    def _skip_to_next(self):
+        """Skip current account and move to next"""
+        self._skip_flag = True
+        self.log("NEXT requested! Kaydouz l account li ba3d...")
+        self.update_status("Skipping to next...", "orange")
+        self._kill_bot_chrome()
 
     def load_profile(self):
         path = filedialog.askopenfilename(
@@ -983,177 +1485,137 @@ class App:
         except Exception:
             return None, None, None
 
-    def _focus_proton_window(self):
-        """Bring Proton VPN window to front, return (hwnd, x, y, w, h) or None"""
+    def _get_wg_configs(self, country):
+        """Find WireGuard config files for a country, return list of paths"""
+        code = COUNTRY_TO_CODE.get(country, country.upper()[:2])
+        configs = []
+        if os.path.isdir(VPN_CONFIGS_DIR):
+            for f in os.listdir(VPN_CONFIGS_DIR):
+                if not f.endswith(".conf"):
+                    continue
+                if f"wg-{code}-" in f or f.startswith(f"{country}"):
+                    configs.append(os.path.join(VPN_CONFIGS_DIR, f))
+        return configs
+
+    def _wg_disconnect(self):
+        """Disconnect any active WireGuard tunnel"""
+        tunnel = getattr(self, '_active_tunnel', None)
+        if not tunnel:
+            return
         try:
-            import ctypes
-            import ctypes.wintypes
-            import time as _t
-
-            hwnd = ctypes.windll.user32.FindWindowW(None, "Proton VPN")
-            if not hwnd:
-                self.log("Proton VPN window mal9ach...")
-                return None
-
-            ctypes.windll.user32.ShowWindow(hwnd, 9)  # SW_RESTORE
-            ctypes.windll.user32.SetForegroundWindow(hwnd)
-            _t.sleep(0.5)
-
-            rect = ctypes.wintypes.RECT()
-            ctypes.windll.user32.GetWindowRect(hwnd, ctypes.byref(rect))
-            return (hwnd, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top)
+            flog(f"WG disconnect: {tunnel}")
+            subprocess.run([WIREGUARD_EXE, "/uninstalltunnelservice", tunnel],
+                          capture_output=True, timeout=10)
+            time.sleep(2)
         except Exception as e:
-            self.log(f"Window error: {e}")
-            return None
+            flog(f"WG disconnect error: {e}")
+        self._active_tunnel = None
 
-    def _click_proton_connect_country(self, country):
-        """Search for country in Proton VPN and connect to it"""
+    def _wg_connect(self, conf_path):
+        """Connect WireGuard using a config file. Returns True if successful."""
+        # Disconnect any existing tunnel first
+        if getattr(self, '_active_tunnel', None):
+            self._wg_disconnect()
+
+        tunnel_name = os.path.splitext(os.path.basename(conf_path))[0]
+        tunnel_name = tunnel_name.replace(" ", "_").replace("(", "").replace(")", "")
+        self._active_tunnel = tunnel_name
+
+        flog(f"WG connect: {conf_path} tunnel={tunnel_name}")
         try:
-            import pyautogui
-            import time as _t
-
-            info = self._focus_proton_window()
-            if not info:
+            result = subprocess.run([WIREGUARD_EXE, "/installtunnelservice", conf_path],
+                                   capture_output=True, timeout=15)
+            flog(f"WG install rc={result.returncode}")
+            if result.returncode != 0:
+                flog(f"WG install error: {result.stderr}")
                 return False
-            hwnd, win_x, win_y, win_w, win_h = info
-            self.log(f"Proton VPN window: {win_w}x{win_h} at ({win_x},{win_y})")
-
-            # Sidebar is ~280px wide on left side
-            sidebar_center_x = win_x + 140
-
-            # Step 1: Click search bar "Browse from..." at top of sidebar (~69px from top)
-            search_x = sidebar_center_x
-            search_y = win_y + 69
-            self.log(f"1. Click search bar...")
-            pyautogui.click(search_x, search_y)
-            _t.sleep(0.5)
-
-            # Step 2: Clear any existing text and type country name
-            pyautogui.hotkey('ctrl', 'a')
-            _t.sleep(0.2)
-            pyautogui.typewrite(country, interval=0.05)
-            _t.sleep(1)
-            self.log(f"2. Typed: {country}")
-
-            # Step 3: Click "All" tab (first tab, leftmost)
-            all_tab_x = win_x + 30
-            all_tab_y = search_y + 45
-            self.log(f"3. Clicking 'All' tab...")
-            pyautogui.click(all_tab_x, all_tab_y)
-            _t.sleep(1)
-
-            # Step 4: Hover over the country entry to reveal the "Connect" button
-            # Layout: All tab → "Country (1)" header (~35px) → country entry (~45px)
-            country_y = all_tab_y + 155
-            self.log(f"4. Hovering over country entry...")
-            pyautogui.moveTo(sidebar_center_x, country_y)
-            _t.sleep(0.8)
-
-            # Step 5: Click the "Connect" button that appears on hover
-            # "Connect" is at roughly 63% of sidebar width from left edge
-            sidebar_w = min(win_w, 310)
-            connect_btn_x = win_x + int(sidebar_w * 0.63)
-            self.log(f"5. Clicking 'Connect' button at ({connect_btn_x}, {country_y})...")
-            pyautogui.click(connect_btn_x, country_y)
-            _t.sleep(2)
-
-            self.log(f"Clicked connect for: {country}")
+            time.sleep(3)
             return True
         except Exception as e:
-            self.log(f"Auto-click error: {e}")
+            flog(f"WG connect error: {e}")
             return False
 
     def connect_vpn_proton(self):
+        """Connect VPN via WireGuard (single account mode)"""
         country = self.vpn_country.get().strip()
         if not country:
             country = "United States"
-        mode = self.vpn_mode.get()
 
-        # Get initial IP before VPN
-        self.log("Kanchuf IP bla VPN...")
-        orig_ip, orig_cc, _ = self._check_vpn_ip()
-        if orig_ip:
-            self.log(f"IP daba (bla VPN): {orig_ip} | Country: {orig_cc}")
-
-        if "Manual" in mode:
-            self.log(f"Connect Proton VPN to {country} b l'id daba...")
-            messagebox.showinfo("VPN Manual",
-                f"1. Ft7 Proton VPN\n2. Connect 3la {country}\n3. Tsana bach VPN ytconnecti (icon akhdar)\n4. Zed OK melli tkoun connecti")
-        else:
-            # Auto mode: launch Proton VPN and click Connect
-            self.log("Proton VPN kayft7...")
-            if not os.path.exists(PROTON_VPN_EXE):
-                self.log("Proton VPN mal9ach! Install it wla sta3mel Manual mode.")
-                messagebox.showwarning("VPN", "Proton VPN mal9ach!\nSta3mel Manual mode wla install Proton VPN.")
-                return False
-            try:
-                subprocess.Popen([PROTON_VPN_EXE], shell=False)
-                self.log("Proton VPN tft7at!")
-            except Exception as e:
-                self.log(f"VPN launch error: {e}")
-
-            # Wait for Proton VPN window to appear
-            self.log("Tsana Proton VPN window...")
-            time.sleep(5)
-
-            # Auto-search country and click connect
-            self._click_proton_connect_country(country)
-
-        # Poll until IP changes (VPN connected) — max 90 sec
-        self.log("Kanchuf wach VPN connecti...")
-        for i in range(18):
-            new_ip, new_cc, new_org = self._check_vpn_ip()
-            if new_ip and orig_ip and new_ip != orig_ip:
-                self.log(f"VPN CONNECTI! IP: {new_ip} | Country: {new_cc} | {new_org}")
-                time.sleep(3)
-                return True
-            if i == 6:
-                # Try again after 30 sec in case first click missed
-                self._click_proton_connect_country(country)
-            self.log(f"  Tsana VPN... ({(i+1)*5}s)")
-            time.sleep(5)
-
-        # Timeout
-        new_ip, new_cc, new_org = self._check_vpn_ip()
-        if new_ip and orig_ip and new_ip != orig_ip:
-            self.log(f"VPN CONNECTI! IP: {new_ip} | Country: {new_cc} | {new_org}")
-            return True
-
-        self.log("VPN ma connectatch! Connect b l'id w 3awed START.")
-        return False
+        return self.connect_vpn_proton_country(country)
 
     def connect_vpn_proton_country(self, country):
-        """Connect VPN to specific country (for batch mode)"""
-        self.log(f"VPN → {country}...")
+        """Connect VPN to specific country via WireGuard"""
+        self.log(f"VPN → {country} (WireGuard)...")
+
+        # Track used configs in this batch to never reuse same IP
+        if not hasattr(self, '_used_vpn_configs'):
+            self._used_vpn_configs = set()
+
+        # Find config files for this country
+        configs = self._get_wg_configs(country)
+        # Remove already-used configs
+        if configs:
+            fresh = [c for c in configs if os.path.basename(c) not in self._used_vpn_configs]
+            if fresh:
+                configs = fresh
+
+        if not configs:
+            # Country mal9ach or all used → pick from ANY other country
+            self.log(f"Config mal9ach l {country} — kankhtar country khra...")
+            last_conf = getattr(self, '_last_vpn_conf', None)
+            all_confs = []
+            if os.path.isdir(VPN_CONFIGS_DIR):
+                for f in os.listdir(VPN_CONFIGS_DIR):
+                    if f.endswith(".conf") and f not in self._used_vpn_configs:
+                        all_confs.append(os.path.join(VPN_CONFIGS_DIR, f))
+            # Don't reuse same config as last time
+            if last_conf and len(all_confs) > 1:
+                all_confs = [c for c in all_confs if os.path.basename(c) != last_conf]
+            if not all_confs:
+                # All configs used — reset tracker and pick any
+                self._used_vpn_configs.clear()
+                self.log("All VPN configs used — resetting...")
+                all_confs = []
+                if os.path.isdir(VPN_CONFIGS_DIR):
+                    for f in os.listdir(VPN_CONFIGS_DIR):
+                        if f.endswith(".conf"):
+                            all_confs.append(os.path.join(VPN_CONFIGS_DIR, f))
+            if not all_confs:
+                self.log("Hta config WireGuard mal9ach! Dir configs f vpn_configs/")
+                return False
+            configs = all_confs
+
+        # Pick random config
+        conf_path = random.choice(configs)
+        conf_name = os.path.basename(conf_path)
+        self._used_vpn_configs.add(conf_name)
+        self._last_vpn_conf = conf_name
+        self.log(f"Config: {os.path.basename(conf_path)}")
 
         # Get initial IP
         orig_ip, orig_cc, _ = self._check_vpn_ip()
         if orig_ip:
             self.log(f"IP daba: {orig_ip} | {orig_cc}")
 
-        # Launch Proton VPN if not running
-        info = self._focus_proton_window()
-        if not info:
-            if os.path.exists(PROTON_VPN_EXE):
-                subprocess.Popen([PROTON_VPN_EXE], shell=False)
-                self.log("Proton VPN kayft7...")
-                time.sleep(5)
+        # Connect
+        if not self._wg_connect(conf_path):
+            self.log("WireGuard ma connectatch!")
+            return False
 
-        # Search and connect to country
-        self._click_proton_connect_country(country)
-
-        # Poll until IP changes — max 60 sec
+        # Poll until IP changes — max 30 sec
         self.log("Kanchuf wach VPN connecti...")
-        for i in range(12):
+        for i in range(6):
+            if self._stop_flag:
+                self.log("VPN polling stopped (STOP flag).")
+                return False
+            time.sleep(5)
             new_ip, new_cc, new_org = self._check_vpn_ip()
             if new_ip and orig_ip and new_ip != orig_ip:
                 self.log(f"VPN CONNECTI! IP: {new_ip} | Country: {new_cc} | {new_org}")
-                time.sleep(3)
+                # Wait extra for routing to stabilize
+                time.sleep(5)
                 return True
-            if i == 5:
-                self._click_proton_connect_country(country)
             self.log(f"  Tsana VPN... ({(i+1)*5}s)")
-            time.sleep(5)
 
         self.log(f"VPN {country} ma connectatch — kaymchi...")
         return False
@@ -1186,18 +1648,20 @@ class App:
             messagebox.showerror("Save", str(e))
 
     def reset_all(self):
-        """Kill Chrome, re-enable START, clear log"""
+        """Kill Chrome, disconnect VPN, re-enable buttons, clear log"""
         self._stop_flag = True
-        # Kill Chrome
+        self._skip_flag = True
+        self._batch_mode = False
+        self._batch_remaining = None
+        self._kill_bot_chrome()
         try:
-            if self._current_browser and self._current_browser.is_connected():
-                import subprocess
-                subprocess.run(["taskkill", "/F", "/IM", "chrome.exe"], capture_output=True)
+            self._wg_disconnect()
         except Exception:
-            import subprocess
-            subprocess.run(["taskkill", "/F", "/IM", "chrome.exe"], capture_output=True)
-        self.start_btn.configure(state="normal")
+            pass
+
         self.batch_btn.configure(state="normal")
+        self.stop_btn.configure(state="disabled")
+        self.next_btn.configure(state="disabled")
         self.log_text.configure(state="normal")
         self.log_text.delete("1.0", tk.END)
         self.log_text.configure(state="disabled")
@@ -1216,7 +1680,7 @@ class App:
             messagebox.showerror("Erreur", "Dakhel email w password.")
             return
         self._stop_flag = False
-        self.start_btn.configure(state="disabled")
+
         self.update_status("Starting...", "orange")
         dev_info = {
             "business": self.dev_business.get().strip(),
@@ -1245,6 +1709,18 @@ class App:
         """Refresh data from Google Sheets or CSV"""
         self._load_csv_data()
 
+    def _get_sheet_id(self):
+        """Extract Google Sheet ID from URL"""
+        source = self.csv_path_var.get().strip()
+        match = re.search(r'/d/([a-zA-Z0-9_-]+)', source)
+        if match:
+            sid = match.group(1)
+            # Skip if it's /d/e/ (published key, not real ID)
+            if '/d/e/' in source:
+                return None
+            return sid
+        return None
+
     def _load_csv_data(self):
         """Load accounts from CSV file or Google Sheets URL"""
         source = self.csv_path_var.get().strip()
@@ -1254,10 +1730,33 @@ class App:
 
         try:
             import csv, io
-            if source.startswith("http"):
-                # Google Sheets published CSV URL
+            if source.startswith("http") and "google.com" in source:
+                # Google Sheets — use gspread if credentials exist
+                sheet_id = self._get_sheet_id()
+                creds_path = os.path.join(BASE_DIR, "credentials.json")
+                if sheet_id and os.path.exists(creds_path):
+                    self.log("Loading from Google Sheets (gspread)...")
+                    import gspread
+                    from google.oauth2.service_account import Credentials
+                    scopes = ["https://www.googleapis.com/auth/spreadsheets"]
+                    creds = Credentials.from_service_account_file(creds_path, scopes=scopes)
+                    gc = gspread.authorize(creds)
+                    sh = gc.open_by_key(sheet_id)
+                    ws = sh.sheet1
+                    records = ws.get_all_records()
+                    rows = [{k: str(v) for k, v in r.items()} for r in records]
+                else:
+                    # Fallback: published CSV URL
+                    import urllib.request
+                    self.log("Loading from Google Sheets (CSV)...")
+                    req = urllib.request.Request(source, headers={"User-Agent": "Mozilla/5.0"})
+                    with urllib.request.urlopen(req, timeout=15) as resp:
+                        content = resp.read().decode("utf-8")
+                    reader = csv.DictReader(io.StringIO(content))
+                    rows = list(reader)
+            elif source.startswith("http"):
                 import urllib.request
-                self.log(f"Loading from Google Sheets...")
+                self.log("Loading from URL...")
                 req = urllib.request.Request(source, headers={"User-Agent": "Mozilla/5.0"})
                 with urllib.request.urlopen(req, timeout=15) as resp:
                     content = resp.read().decode("utf-8")
@@ -1272,37 +1771,79 @@ class App:
             self.batch_rows = rows
             self.batch_progress_var.set(f"{len(rows)} accounts loaded!")
             self.log(f"Loaded: {len(rows)} accounts")
+            self._populate_table()
             return rows
         except Exception as e:
             messagebox.showerror("Error", f"Ma9dertch nqra l data:\n{e}")
             return []
 
-    def start_batch(self):
+    def _import_accounts(self):
+        """Import accounts from CSV/Sheets into table without running batch"""
         rows = self._load_csv_data()
-        if not rows:
-            return
+        if rows:
+            self.log(f"Imported {len(rows)} accounts. Select li bghiti o click BATCH.")
+
+    def start_batch(self):
+        flog(f"=== start_batch called. batch_rows={len(getattr(self, 'batch_rows', []))}, btn_state={self.batch_btn.cget('state')} ===")
+        # If data not loaded yet, load it
+        if not hasattr(self, 'batch_rows') or not self.batch_rows:
+            rows = self._load_csv_data()
+            if not rows:
+                return
+
+        # Resume from where we stopped, or build new list
+        if hasattr(self, '_batch_remaining') and self._batch_remaining:
+            self._batch_indices = self._batch_remaining
+            self._batch_remaining = None
+            self.log(f"BATCH RESUME: {len(self._batch_indices)} accounts remaining")
+        elif self._checked_rows:
+            # 1 selected → start from that row to the end
+            # multiple selected → only those rows
+            if len(self._checked_rows) == 1:
+                start_idx = min(self._checked_rows)
+                self._batch_indices = list(range(start_idx, len(self.batch_rows)))
+                self.log(f"BATCH: Starting from account {start_idx+1} → {len(self._batch_indices)} accounts")
+            else:
+                self._batch_indices = sorted(self._checked_rows)
+                self.log(f"BATCH: {len(self._batch_indices)} selected accounts")
+        else:
+            self._batch_indices = list(range(len(self.batch_rows)))
+            self.log(f"BATCH: All {len(self._batch_indices)} accounts (none selected)")
 
         self._stop_flag = False
-        self.start_btn.configure(state="disabled")
+        self._skip_flag = False
+        self._used_vpn_configs = set()
+
         self.batch_btn.configure(state="disabled")
+        self.stop_btn.configure(state="normal")
+        self.next_btn.configure(state="normal")
         thread = threading.Thread(target=self._run_batch)
         thread.daemon = True
         thread.start()
 
     def _run_batch(self):
+      try:
         self._batch_mode = True
-        total = len(self.batch_rows)
+        indices = self._batch_indices
+        total = len(indices)
         results = {"ok": [], "skip": [], "fail": []}
-        for idx, row in enumerate(self.batch_rows):
+        for step, idx in enumerate(indices):
+            row = self.batch_rows[idx]
             if self._stop_flag:
-                self.log("BATCH STOPPED by user.")
+                # Save remaining accounts so BATCH can resume
+                self._batch_remaining = indices[step:]
+                self.log(f"BATCH STOPPED by user. {len(self._batch_remaining)} accounts remaining — click BATCH to resume.")
                 break
 
+            # Reset skip flag for this account
+            self._skip_flag = False
+
             self.log(f"\n{'='*40}")
-            self.log(f"ACCOUNT {idx+1}/{total}")
+            self.log(f"ACCOUNT {step+1}/{total}")
             self.log(f"{'='*40}")
-            self.root.after(0, lambda i=idx, t=total: self.batch_progress_var.set(f"Account {i+1}/{t}"))
-            self.update_status(f"Batch: {idx+1}/{total} | OK:{len(results['ok'])} SKIP:{len(results['skip'])} FAIL:{len(results['fail'])}", "orange")
+            self.root.after(0, lambda s=step, t=total: self.batch_progress_var.set(f"Account {s+1}/{t}"))
+            self._update_table_status(idx, "running")
+            self.update_status(f"Batch: {step+1}/{total} | OK:{len(results['ok'])} SKIP:{len(results['skip'])} FAIL:{len(results['fail'])}", "orange")
 
             # Read fields from CSV row
             prenom = row.get("prenom", row.get("first_name", "")).strip()
@@ -1312,6 +1853,8 @@ class App:
 
             if not prenom or not nom or not email or not out_pass:
                 self.log(f"SKIP: missing prenom/nom/email/password")
+                self._update_table_status(idx, "skip")
+                results["skip"].append(email or f"row_{idx}")
                 continue
 
             dev_info = {
@@ -1334,29 +1877,85 @@ class App:
             try:
                 # Connect VPN to account's country
                 self.connect_vpn_proton_country(account_country)
-                # Run the flow (skip VPN step since already connected)
+                # Run the flow
+                flog(f"=== LAUNCHING asyncio.run for {email} ===")
                 asyncio.run(run_playwright_flow(self, prenom, nom, email, out_pass, dev_info or {}))
-                if self._last_result in ("SKIP_VERIFICATION", "SKIP_EXISTS"):
+                flog(f"=== asyncio.run FINISHED for {email} ===")
+                if self._skip_flag:
                     results["skip"].append(email)
-                    reason = "Verification ID" if self._last_result == "SKIP_VERIFICATION" else "Email deja kayn"
-                    self.log(f"SKIPPED: {email} ({reason})")
+                    self.log(f"SKIPPED (NEXT): {email}")
+                    self._update_table_status(idx, "skip")
+                    self._update_sheet_status(email, "skip")
+                elif self._last_result == "SKIP_CAPTCHA":
+                    results["skip"].append(email)
+                    self.log(f"CAPTCHA: {email}")
+                    self._update_table_status(idx, "skip")
+                    self._update_sheet_status(email, "captcha")
+                elif self._last_result == "SKIP_EXISTS":
+                    results["skip"].append(email)
+                    self.log(f"ALREADY CREATED: {email}")
+                    self._update_table_status(idx, "skip")
+                    self._update_sheet_status(email, "already created")
+                elif self._last_result == "SKIP_VERIFICATION":
+                    results["skip"].append(email)
+                    self.log(f"VERIFICATION: {email}")
+                    self._update_table_status(idx, "skip")
+                    self._update_sheet_status(email, "verification")
                 else:
                     results["ok"].append(email)
                     self.log(f"OK: {email}")
+                    self._update_table_status(idx, "ok")
+                    self._update_sheet_status(email, "ok")
             except Exception as e:
-                if "TargetClosedError" in type(e).__name__ or "closed" in str(e).lower():
+                flog(f"=== BATCH EXCEPTION for {email}: {type(e).__name__}: {e} ===")
+                # Check _last_result first — it may have been set before the exception
+                if self._last_result == "SKIP_CAPTCHA":
+                    results["skip"].append(email)
+                    self.log(f"CAPTCHA: {email}")
+                    self._update_table_status(idx, "skip")
+                    self._update_sheet_status(email, "captcha")
+                elif self._last_result == "SKIP_EXISTS":
+                    results["skip"].append(email)
+                    self.log(f"ALREADY CREATED: {email}")
+                    self._update_table_status(idx, "skip")
+                    self._update_sheet_status(email, "already created")
+                elif self._last_result == "SKIP_VERIFICATION":
+                    results["skip"].append(email)
+                    self.log(f"VERIFICATION: {email}")
+                    self._update_table_status(idx, "skip")
+                    self._update_sheet_status(email, "verification")
+                elif self._skip_flag:
+                    results["skip"].append(email)
+                    self.log(f"SKIPPED (NEXT): {email}")
+                    self._update_table_status(idx, "skip")
+                    self._update_sheet_status(email, "skip")
+                elif "TargetClosedError" in type(e).__name__ or "closed" in str(e).lower():
                     self.log("Chrome tsad - normal.")
                     results["skip"].append(email)
+                    self._update_table_status(idx, "skip")
+                    self._update_sheet_status(email, "skip")
                 else:
                     self.log(f"FAIL: {email} - {e}")
                     results["fail"].append(email)
+                    self._update_table_status(idx, "fail")
+                    self._update_sheet_status(email, "fail")
 
-            self.log(f"Account {idx+1}/{total} | OK:{len(results['ok'])} SKIP:{len(results['skip'])} FAIL:{len(results['fail'])}")
+            # Remove processed account from table (not from sheets)
+            self._remove_table_row(idx)
 
-            # Small pause between accounts
-            if idx < total - 1 and not self._stop_flag:
-                self.log("Pause 10 sec before next account...")
-                time.sleep(10)
+            flog(f"=== ACCOUNT DONE: {email} | moving to next... ===")
+            flog(f"=== Results: skip_flag={self._skip_flag}, stop_flag={self._stop_flag}, last_result={self._last_result} ===")
+            self.log(f"Account {step+1}/{total} | OK:{len(results['ok'])} SKIP:{len(results['skip'])} FAIL:{len(results['fail'])}")
+
+            # Short pause between accounts
+            if step < total - 1 and not self._stop_flag:
+                self.log("Pause 5 sec before next account...")
+                flog("=== PAUSE 5s ===")
+                for _ in range(5):
+                    if self._stop_flag or self._skip_flag:
+                        break
+                    time.sleep(1)
+                flog("=== PAUSE DONE ===")
 
         # Final summary
         self.log(f"\n{'='*40}")
@@ -1378,14 +1977,18 @@ class App:
                 self.log(f"  {e}")
         self.update_status(f"Done! OK:{len(results['ok'])} SKIP:{len(results['skip'])} FAIL:{len(results['fail'])}", "green")
         self.root.after(0, lambda: self.batch_progress_var.set(f"Done: OK:{len(results['ok'])} SKIP:{len(results['skip'])} FAIL:{len(results['fail'])}"))
-        try:
-            self.start_btn.configure(state="normal")
-            self.batch_btn.configure(state="normal")
-        except Exception:
-            pass
         self._batch_mode = False
-        self.root.after(0, lambda: self.start_btn.configure(state="normal"))
         self.root.after(0, lambda: self.batch_btn.configure(state="normal"))
+        self.root.after(0, lambda: self.stop_btn.configure(state="disabled"))
+        self.root.after(0, lambda: self.next_btn.configure(state="disabled"))
+      except Exception as batch_err:
+        import traceback
+        flog(f"=== BATCH THREAD CRASHED: {batch_err} ===")
+        flog(traceback.format_exc())
+        self._batch_mode = False
+        self.root.after(0, lambda: self.batch_btn.configure(state="normal"))
+        self.root.after(0, lambda: self.stop_btn.configure(state="disabled"))
+        self.root.after(0, lambda: self.next_btn.configure(state="disabled"))
 
     def _wait_captcha_solved(self):
         self.root.lift()
@@ -1413,15 +2016,6 @@ class App:
                 self.update_status("Erreur!", "red")
         finally:
             self.log("Finished.")
-            try:
-                self.start_btn.configure(state="normal")
-            except Exception:
-                pass
-            try:
-                self.root.after(0, lambda: self.start_btn.configure(state="normal"))
-            except Exception:
-                pass
-            self.log("Wajed bach t3awed START.")
 
 if __name__ == "__main__":
     root = tk.Tk()
