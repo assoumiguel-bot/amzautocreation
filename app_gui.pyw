@@ -1801,9 +1801,11 @@ class App:
                     reader = csv.DictReader(f)
                     rows = list(reader)
 
-            self.batch_rows = rows
-            self.batch_progress_var.set(f"{len(rows)} accounts loaded!")
-            self.log(f"Loaded: {len(rows)} accounts")
+            # Filter: only show accounts with empty status
+            filtered = [r for r in rows if not r.get("status", "").strip()]
+            self.batch_rows = filtered
+            self.batch_progress_var.set(f"{len(filtered)} accounts (filtered from {len(rows)})")
+            self.log(f"Loaded: {len(filtered)} accounts with empty status (total in sheet: {len(rows)})")
             self._populate_table()
             return rows
         except Exception as e:
