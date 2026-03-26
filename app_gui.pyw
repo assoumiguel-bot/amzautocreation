@@ -1396,8 +1396,27 @@ async def setup_2fa_flow(app, email, password):
                 app.log("2FA: Pasting OTP into Amazon...")
                 await page.bring_to_front()
                 await page.wait_for_timeout(2000)
-                await otp_found.fill("")
-                await pw_human_type(page, otp_sel, otp)
+                # Find the actual <input> inside the OTP container (may be a div wrapper)
+                actual_input = None
+                try:
+                    tag = await otp_found.evaluate("el => el.tagName.toLowerCase()")
+                    if tag != "input":
+                        # It's a wrapper div, find input inside
+                        inner = page.locator(f"{otp_sel} input").first
+                        if await inner.is_visible():
+                            actual_input = inner
+                            otp_sel = f"{otp_sel} input"
+                except Exception:
+                    pass
+                if actual_input:
+                    await actual_input.fill("")
+                    await pw_human_type(page, otp_sel, otp)
+                else:
+                    try:
+                        await otp_found.fill("")
+                    except Exception:
+                        pass
+                    await pw_human_type(page, otp_sel, otp)
                 await page.wait_for_timeout(500)
                 for btn in ["#cvf-input-code-btn", "input[value='Verify']",
                             "button:has-text('Verify')", "button:has-text('Submit code')",
@@ -1421,18 +1440,76 @@ async def setup_2fa_flow(app, email, password):
         await page.goto(AMAZON_2FA_URL, wait_until="domcontentloaded", timeout=30000)
         await page.wait_for_timeout(4000)
 
-        # May need to re-enter password
-        if await page.query_selector("#ap_password"):
-            app.log("2FA: Re-entering password...")
-            await pw_human_type(page, "#ap_password", password)
-            for btn in ["#signInSubmit", "input[type='submit']"]:
+        # Handle any sign-in or password re-entry needed
+        for _attempt_2fa in range(3):
+            cur_url = page.url.lower()
+            app.log(f"2FA: Setup page check, URL: {page.url[:80]}")
+
+            # Already on 2FA setup page
+            if "approval" in cur_url or "settings" in cur_url or "mfa" in cur_url:
+                app.log("2FA: On 2FA setup page!")
+                break
+
+            # Password re-entry
+            pass_el = None
+            for sel in ["#ap_password", "input[type='password']"]:
                 try:
-                    el = page.locator(btn).first
+                    el = page.locator(sel).first
                     if await el.is_visible():
-                        await el.click()
+                        pass_el = el
                         break
                 except Exception:
                     continue
+            if pass_el:
+                app.log("2FA: Re-entering password...")
+                await pass_el.click()
+                await page.wait_for_timeout(200)
+                await page.keyboard.type(password, delay=80)
+                await page.wait_for_timeout(500)
+                for btn in ["#signInSubmit", "input[type='submit']", "button[type='submit']",
+                            "button:has-text('Sign in')", "button:has-text('Sign-In')"]:
+                    try:
+                        el = page.locator(btn).first
+                        if await el.is_visible():
+                            await el.click()
+                            break
+                    except Exception:
+                        continue
+                await page.wait_for_timeout(4000)
+                continue
+
+            # Email field (new Amazon sign-in page)
+            email_el = None
+            for sel in ["#ap_email", "input[type='email']", "input[placeholder*='email']",
+                        "input[placeholder*='mobile']"]:
+                try:
+                    el = page.locator(sel).first
+                    if await el.is_visible():
+                        email_el = el
+                        break
+                except Exception:
+                    continue
+            if email_el:
+                app.log("2FA: Re-entering email...")
+                await email_el.click()
+                await page.wait_for_timeout(200)
+                await page.keyboard.type(email, delay=80)
+                await page.wait_for_timeout(500)
+                for btn in ["#continue", "input[type='submit']", "button:has-text('Continue')",
+                            "button:has-text('Sign in')"]:
+                    try:
+                        el = page.locator(btn).first
+                        if await el.is_visible():
+                            await el.click()
+                            break
+                    except Exception:
+                        continue
+                await page.wait_for_timeout(3000)
+                continue
+
+            # Unknown page — try going to 2FA URL again
+            app.log("2FA: Unknown page, retrying 2FA URL...")
+            await page.goto(AMAZON_2FA_URL, wait_until="domcontentloaded", timeout=30000)
             await page.wait_for_timeout(4000)
 
         # 6. Select "Authenticator App" option
