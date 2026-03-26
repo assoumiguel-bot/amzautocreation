@@ -1610,6 +1610,49 @@ class App:
         # Run in background so it doesn't block batch
         threading.Thread(target=_do_update, daemon=True).start()
 
+    def _update_sheet_totp(self, email, totp_secret):
+        """Save TOTP secret to Google Sheets in a 'totp_secret' column"""
+        def _do_update():
+            try:
+                sheet_id = self._get_sheet_id()
+                if not sheet_id:
+                    return
+
+                creds_path = os.path.join(BASE_DIR, "credentials.json")
+                if not os.path.exists(creds_path):
+                    return
+
+                import gspread
+                from google.oauth2.service_account import Credentials
+
+                scopes = ["https://www.googleapis.com/auth/spreadsheets"]
+                creds = Credentials.from_service_account_file(creds_path, scopes=scopes)
+                gc = gspread.authorize(creds)
+                sh = gc.open_by_key(sheet_id)
+                ws = sh.sheet1
+
+                all_values = ws.get_all_values()
+                header = [h.lower().strip() for h in all_values[0]]
+
+                if "totp_secret" in header:
+                    totp_col = header.index("totp_secret") + 1
+                else:
+                    totp_col = len(header) + 1
+                    ws.update_cell(1, totp_col, "totp_secret")
+
+                email_col = header.index("email") + 1 if "email" in header else 1
+                for row_idx, row_vals in enumerate(all_values[1:], start=2):
+                    cell_email = row_vals[email_col - 1].strip() if email_col - 1 < len(row_vals) else ""
+                    if cell_email.lower() == email.lower():
+                        ws.update_cell(row_idx, totp_col, totp_secret)
+                        self.log(f"  Sheet TOTP saved: {email}")
+                        flog(f"Sheet TOTP saved: row {row_idx}, {email}")
+                        return
+                flog(f"TOTP: Email {email} not found in sheet")
+            except Exception as e:
+                flog(f"Sheet TOTP error: {e}")
+        threading.Thread(target=_do_update, daemon=True).start()
+
     # --- Table methods ---
     def _populate_table(self):
         """Fill accounts table from self.batch_rows"""
@@ -2202,6 +2245,7 @@ class App:
             self.root.after(0, lambda c=account_country: (self.vpn_country.delete(0, tk.END), self.vpn_country.insert(0, c)))
 
             self._last_result = None
+            self._2fa_totp_secret = None
             try:
                 # Connect VPN to account's country (retry with different config if fails)
                 vpn_ok = self.connect_vpn_proton_country(account_country)
@@ -2240,9 +2284,16 @@ class App:
                     self._update_sheet_status(email, "verification")
                 else:
                     results["ok"].append(email)
-                    self.log(f"OK: {email}")
-                    self._update_table_status(idx, "ok")
-                    self._update_sheet_status(email, "ok")
+                    totp_secret = getattr(self, '_2fa_totp_secret', None)
+                    if totp_secret:
+                        self.log(f"OK + 2FA: {email} | TOTP: {totp_secret[:4]}...{totp_secret[-4:]}")
+                        self._update_table_status(idx, "ok+2fa")
+                        self._update_sheet_status(email, "ok+2fa")
+                        self._update_sheet_totp(email, totp_secret)
+                    else:
+                        self.log(f"OK (no 2FA): {email}")
+                        self._update_table_status(idx, "ok")
+                        self._update_sheet_status(email, "ok")
             except Exception as e:
                 flog(f"=== BATCH EXCEPTION for {email}: {type(e).__name__}: {e} ===")
                 # Check _last_result first — it may have been set before the exception
