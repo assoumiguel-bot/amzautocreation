@@ -1867,18 +1867,38 @@ class App:
         return configs
 
     def _wg_disconnect(self):
-        """Disconnect any active WireGuard tunnel"""
+        """Disconnect ALL WireGuard tunnels (active + leftover)"""
+        # First disconnect tracked tunnel
         tunnel = getattr(self, '_active_tunnel', None)
-        if not tunnel:
-            return
+        if tunnel:
+            try:
+                flog(f"WG disconnect: {tunnel}")
+                subprocess.run([WIREGUARD_EXE, "/uninstalltunnelservice", tunnel],
+                              capture_output=True, timeout=10)
+            except Exception as e:
+                flog(f"WG disconnect error: {e}")
+            self._active_tunnel = None
+
+        # Clean up ALL leftover WireGuard tunnel services
         try:
-            flog(f"WG disconnect: {tunnel}")
-            subprocess.run([WIREGUARD_EXE, "/uninstalltunnelservice", tunnel],
-                          capture_output=True, timeout=10)
-            time.sleep(2)
+            result = subprocess.run(
+                ["powershell", "-Command",
+                 "Get-Service -Name 'WireGuardTunnel*' | Select-Object -ExpandProperty Name"],
+                capture_output=True, text=True, timeout=10)
+            if result.returncode == 0 and result.stdout.strip():
+                for svc in result.stdout.strip().splitlines():
+                    svc = svc.strip()
+                    if svc.startswith("WireGuardTunnel$"):
+                        tname = svc.replace("WireGuardTunnel$", "")
+                        try:
+                            flog(f"WG cleanup leftover: {tname}")
+                            subprocess.run([WIREGUARD_EXE, "/uninstalltunnelservice", tname],
+                                          capture_output=True, timeout=10)
+                        except Exception:
+                            pass
         except Exception as e:
-            flog(f"WG disconnect error: {e}")
-        self._active_tunnel = None
+            flog(f"WG cleanup error: {e}")
+        time.sleep(2)
 
     def _wg_connect(self, conf_path):
         """Connect WireGuard using a config file. Returns True if successful."""
