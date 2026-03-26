@@ -336,96 +336,119 @@ async def run_playwright_flow(app, prenom, nom, email, out_pass, dev_info=None):
                         create_url = "https://www.amazon.com/ap/register?openid.return_to=https%3A%2F%2Fdeveloper.amazon.com%2Fdashboard&openid.assoc_handle=mas_dev_portal&openid.mode=checkid_setup&openid.ns=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0"
                         await page.goto(create_url, wait_until="domcontentloaded")
                         await page.wait_for_timeout(3000)
-                        # If redirected to sign-in, click "Create account" (try multiple times)
-                        for _create_try in range(3):
-                            # Try clicking Create link directly
-                            create_clicked = False
-                            for create_sel in [
-                                "a[id='createAccountSubmit']",
-                                "a:has-text('Create your Amazon Developer account')",
-                                "a:has-text('Create your Amazon account')",
-                                "a:has-text('Create a new Amazon account')",
-                                "a:has-text('Create account')",
-                                "#auth-create-account-link",
-                                "button:has-text('Create your Amazon Developer account')",
-                                "[data-action='sign-up']",
-                            ]:
-                                try:
-                                    create_link = page.locator(create_sel).first
-                                    if await create_link.is_visible():
-                                        app.log(f"   Clicking '{create_sel}'...")
-                                        await create_link.click()
-                                        create_clicked = True
-                                        await page.wait_for_timeout(3000)
-                                        break
-                                except Exception:
-                                    continue
-                            if create_clicked:
-                                break
-                            # No create link visible — check for email-first sign-in (old or new selectors)
-                            email_sel_retry = None
-                            for sel in ["#ap_email", "input[type='email']", "input[placeholder*='email']", "input[placeholder*='mobile']"]:
-                                try:
-                                    el = page.locator(sel).first
-                                    if await el.is_visible():
-                                        email_sel_retry = sel
-                                        break
-                                except Exception:
-                                    continue
-                            name_field = await page.query_selector("#ap_customer_name")
-                            if email_sel_retry and not name_field:
-                                app.log(f"   Email-first sign-in detected ({email_sel_retry}) — entering email...")
-                                await pw_human_type(page, email_sel_retry, email)
-                                await page.wait_for_timeout(1000)
-                                for btn in ["#continue", "input[type='submit']", "button:has-text('Continue')", "button:has-text('Sign in')"]:
-                                    try:
-                                        el = page.locator(btn).first
-                                        if await el.is_visible():
-                                            await el.click()
-                                            break
-                                    except Exception:
-                                        continue
-                                await page.wait_for_timeout(3000)
-                                # Always try to click Create button after entering email
-                                app.log("   Looking for 'Create' button after email...")
-                                for cs in [
-                                    "a:has-text('Create your Amazon Developer account')",
-                                    "button:has-text('Create your Amazon Developer account')",
-                                    "span:has-text('Create your Amazon Developer account')",
+
+                        # Check if we're already on registration form (name field visible)
+                        _already_on_register = await page.query_selector("#ap_customer_name")
+                        if not _already_on_register:
+                            # Not on register form — need to navigate there
+                            for _create_try in range(3):
+                                # Try clicking Create link (only <a> links, NOT submit buttons)
+                                create_clicked = False
+                                for create_sel in [
                                     "a[id='createAccountSubmit']",
                                     "#auth-create-account-link",
+                                    "a:has-text('Create your Amazon Developer account')",
                                     "a:has-text('Create your Amazon account')",
                                     "a:has-text('Create a new Amazon account')",
                                     "a:has-text('Create account')",
-                                    "button:has-text('Create account')",
                                     "[data-action='sign-up']",
                                 ]:
                                     try:
-                                        cel = page.locator(cs).first
-                                        if await cel.is_visible():
-                                            await cel.click()
-                                            app.log(f"   Clicked: {cs}")
-                                            await page.wait_for_timeout(3000)
+                                        create_link = page.locator(create_sel).first
+                                        if await create_link.is_visible():
+                                            # Make sure it's a link, not the submit button
+                                            tag = await create_link.evaluate("el => el.tagName.toLowerCase()")
+                                            if tag == "a" or "link" in create_sel or "sign-up" in create_sel:
+                                                app.log(f"   Clicking '{create_sel}'...")
+                                                await create_link.click()
+                                                create_clicked = True
+                                                await page.wait_for_timeout(3000)
+                                                break
+                                    except Exception:
+                                        continue
+                                if create_clicked:
+                                    break
+                                # No create link — check for email-first sign-in
+                                email_sel_retry = None
+                                for sel in ["#ap_email", "input[type='email']", "input[placeholder*='email']", "input[placeholder*='mobile']"]:
+                                    try:
+                                        el = page.locator(sel).first
+                                        if await el.is_visible():
+                                            email_sel_retry = sel
                                             break
                                     except Exception:
                                         continue
-                                break
-                            else:
-                                break
-                        # Now fill registration form
-                        app.log("Re-filling registration form...")
+                                name_field = await page.query_selector("#ap_customer_name")
+                                if name_field:
+                                    # Registration form appeared!
+                                    break
+                                if email_sel_retry:
+                                    app.log(f"   Email-first sign-in detected ({email_sel_retry}) — entering email...")
+                                    await pw_human_type(page, email_sel_retry, email)
+                                    await page.wait_for_timeout(1000)
+                                    for btn in ["#continue", "input[type='submit']", "button:has-text('Continue')", "button:has-text('Sign in')"]:
+                                        try:
+                                            el = page.locator(btn).first
+                                            if await el.is_visible():
+                                                await el.click()
+                                                break
+                                        except Exception:
+                                            continue
+                                    await page.wait_for_timeout(3000)
+                                    # After email → look for Create link (only <a> tags)
+                                    app.log("   Looking for 'Create' link after email...")
+                                    for cs in [
+                                        "a:has-text('Create your Amazon Developer account')",
+                                        "a[id='createAccountSubmit']",
+                                        "#auth-create-account-link",
+                                        "a:has-text('Create your Amazon account')",
+                                        "a:has-text('Create a new Amazon account')",
+                                        "a:has-text('Create account')",
+                                    ]:
+                                        try:
+                                            cel = page.locator(cs).first
+                                            if await cel.is_visible():
+                                                tag = await cel.evaluate("el => el.tagName.toLowerCase()")
+                                                if tag == "a":
+                                                    await cel.click()
+                                                    app.log(f"   Clicked: {cs}")
+                                                    await page.wait_for_timeout(3000)
+                                                    break
+                                        except Exception:
+                                            continue
+                                    break
+                                else:
+                                    break
+
+                        # Fill registration form (name, email, password, re-enter password)
+                        app.log("Filling registration form...")
+                        await page.wait_for_timeout(1000)
                         if await page.query_selector("#ap_customer_name"):
+                            await page.fill("#ap_customer_name", "")
                             await pw_human_type(page, "#ap_customer_name", full_name)
                         if await page.query_selector("#ap_email"):
                             val = await page.input_value("#ap_email")
                             if not val:
                                 await pw_human_type(page, "#ap_email", email)
                         if await page.query_selector("#ap_password"):
+                            await page.fill("#ap_password", "")
                             await pw_human_type(page, "#ap_password", out_pass)
-                            if await page.query_selector("#ap_password_check"):
-                                await pw_human_type(page, "#ap_password_check", out_pass)
-                        if await page.query_selector("#continue"):
-                            await page.click("#continue")
+                        if await page.query_selector("#ap_password_check"):
+                            await page.fill("#ap_password_check", "")
+                            await pw_human_type(page, "#ap_password_check", out_pass)
+                        await page.wait_for_timeout(500)
+                        # Now click submit
+                        for submit_sel in ["#continue", "input[id='continue']", "input[type='submit']",
+                                           "button:has-text('Create your Amazon Developer account')",
+                                           "button:has-text('Create account')"]:
+                            try:
+                                el = page.locator(submit_sel).first
+                                if await el.is_visible():
+                                    await el.click()
+                                    app.log(f"   Submit: {submit_sel}")
+                                    break
+                            except Exception:
+                                continue
                         await page.wait_for_timeout(3000)
                         continue
 
