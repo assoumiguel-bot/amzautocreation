@@ -179,16 +179,32 @@ async def run_playwright_flow(app, prenom, nom, email, out_pass, dev_info=None):
                     except Exception:
                         continue
 
-            email_only = await page.query_selector_all("#ap_email")
+            # Detect email-first sign-in (old #ap_email OR new placeholder-based input)
+            email_only = await page.query_selector("#ap_email")
+            new_email = None
+            if not email_only:
+                for sel in ["input[type='email']", "input[placeholder*='email']", "input[placeholder*='mobile']"]:
+                    try:
+                        el = page.locator(sel).first
+                        if await el.is_visible():
+                            new_email = sel
+                            break
+                    except Exception:
+                        continue
             name_fields = await page.query_selector_all("#ap_customer_name")
-            if email_only and not name_fields:
-                app.log("   Email-first flow...")
-                await pw_human_type(page, "#ap_email", email)
+            if (email_only or new_email) and not name_fields:
+                email_sel = "#ap_email" if email_only else new_email
+                app.log(f"   Email-first flow (selector: {email_sel})...")
+                await pw_human_type(page, email_sel, email)
                 await page.wait_for_timeout(1000)
-                try:
-                    await page.click("#continue")
-                except Exception:
-                    pass
+                for btn in ["#continue", "input[type='submit']", "button:has-text('Continue')", "button:has-text('Sign in')"]:
+                    try:
+                        el = page.locator(btn).first
+                        if await el.is_visible():
+                            await el.click()
+                            break
+                    except Exception:
+                        continue
                 await page.wait_for_timeout(random.randint(2500, 4000))
 
                 # Check "We cannot find an account" → click Create button
@@ -370,17 +386,31 @@ async def run_playwright_flow(app, prenom, nom, email, out_pass, dev_info=None):
                                     break
                             except Exception:
                                 continue
-                        # Check if we're on email-first sign-in (no name field)
+                        # Check if we're on email-first sign-in (old or new selectors)
                         email_field = await page.query_selector("#ap_email")
+                        retry_email_sel = "#ap_email" if email_field else None
+                        if not email_field:
+                            for sel in ["input[type='email']", "input[placeholder*='email']", "input[placeholder*='mobile']"]:
+                                try:
+                                    el = page.locator(sel).first
+                                    if await el.is_visible():
+                                        retry_email_sel = sel
+                                        break
+                                except Exception:
+                                    continue
                         name_field = await page.query_selector("#ap_customer_name")
-                        if email_field and not name_field:
-                            app.log("   Email-first sign-in flow detected after retry...")
-                            await pw_human_type(page, "#ap_email", email)
+                        if retry_email_sel and not name_field:
+                            app.log(f"   Email-first sign-in flow after retry (selector: {retry_email_sel})...")
+                            await pw_human_type(page, retry_email_sel, email)
                             await page.wait_for_timeout(1000)
-                            try:
-                                await page.click("#continue")
-                            except Exception:
-                                pass
+                            for btn in ["#continue", "input[type='submit']", "button:has-text('Continue')", "button:has-text('Sign in')"]:
+                                try:
+                                    el = page.locator(btn).first
+                                    if await el.is_visible():
+                                        await el.click()
+                                        break
+                                except Exception:
+                                    continue
                             await page.wait_for_timeout(3000)
                             # Check "cannot find account" → click Create
                             try:
