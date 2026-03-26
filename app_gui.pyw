@@ -459,34 +459,48 @@ async def run_playwright_flow(app, prenom, nom, email, out_pass, dev_info=None):
                 app.log("   Klikina Se connecter.")
                 await page_outlook.wait_for_timeout(8000)
 
-                # "Stay signed in?" - la
-                try:
-                    await page_outlook.locator("#idBtn_Back").click(timeout=3000)
+                # Dismiss passkey/interrupt/"Stay signed in?" — loop until clear
+                for _ in range(8):
                     await page_outlook.wait_for_timeout(2000)
-                except Exception:
-                    pass
-
-                # Dismiss any passkey/interrupt page - loop
-                for _ in range(5):
-                    await page_outlook.wait_for_timeout(2000)
-                    if "passkey" in page_outlook.url or "interrupt" in page_outlook.url:
-                        app.log(f"   Passkey/interrupt page - click Annuler... ({page_outlook.url[:60]})")
-                        dismissed = False
-                        for sel in ["button:has-text('Annuler')", "button:has-text('Cancel')", "button:has-text('Skip')", "a:has-text('Annuler')", "button:has-text('Not now')"]:
+                    cur_url = page_outlook.url.lower()
+                    dismissed = False
+                    # Passkey or interrupt page
+                    if "passkey" in cur_url or "interrupt" in cur_url or "kmsi" in cur_url:
+                        app.log(f"   Passkey/interrupt/KMSI page — dismissing... ({page_outlook.url[:60]})")
+                        for sel in ["#idBtn_Back", "button:has-text('Cancel')", "button:has-text('Annuler')",
+                                    "button:has-text('Skip for now')", "button:has-text('Skip')",
+                                    "button:has-text('Not now')", "button:has-text('No')",
+                                    "a:has-text('Cancel')", "a:has-text('Annuler')",
+                                    "a:has-text('Skip for now')", "#cancelBtn",
+                                    "button[aria-label='Cancel']", "button[aria-label='No']"]:
                             try:
                                 el = page_outlook.locator(sel).first
                                 if await el.is_visible():
                                     await el.click()
                                     dismissed = True
-                                    app.log("   Dismissed.")
+                                    app.log(f"   Dismissed: {sel}")
                                     await page_outlook.wait_for_timeout(2000)
                                     break
                             except Exception:
                                 continue
                         if not dismissed:
-                            break
-                    else:
-                        break
+                            # Try Escape key as fallback
+                            await page_outlook.keyboard.press("Escape")
+                            app.log("   Pressed Escape")
+                            await page_outlook.wait_for_timeout(2000)
+                        continue
+                    # "Stay signed in?" dialog
+                    try:
+                        stay_btn = page_outlook.locator("#idBtn_Back").first
+                        if await stay_btn.is_visible():
+                            await stay_btn.click()
+                            app.log("   'Stay signed in?' → No")
+                            await page_outlook.wait_for_timeout(2000)
+                            continue
+                    except Exception:
+                        pass
+                    # Clear — no more dialogs
+                    break
 
                 app.log("2. Naviqu l-inbox...")
                 await page_outlook.goto("https://outlook.live.com/mail/0/inbox", wait_until="domcontentloaded", timeout=40000)
