@@ -111,51 +111,35 @@ async def run_playwright_flow(app, prenom, nom, email, out_pass, dev_info=None):
     except Exception:
         app._browser_pid = None
     ua = random.choice(USER_AGENTS)
+    # Match timezone to account country to avoid mismatch detection
+    country_timezones = {
+        "United States": "America/New_York", "United Kingdom": "Europe/London",
+        "Germany": "Europe/Berlin", "France": "Europe/Paris", "Netherlands": "Europe/Amsterdam",
+        "Canada": "America/Toronto", "Australia": "Australia/Sydney", "Japan": "Asia/Tokyo",
+        "Spain": "Europe/Madrid", "Italy": "Europe/Rome", "Brazil": "America/Sao_Paulo",
+        "India": "Asia/Kolkata", "Singapore": "Asia/Singapore", "Sweden": "Europe/Stockholm",
+        "Switzerland": "Europe/Zurich", "Belgium": "Europe/Brussels", "Poland": "Europe/Warsaw",
+        "Turkey": "Europe/Istanbul", "Denmark": "Europe/Copenhagen", "Finland": "Europe/Helsinki",
+    }
+    account_country = dev_info.get("country", "United States") if dev_info else "United States"
+    tz = country_timezones.get(account_country, "America/New_York")
     context = await browser.new_context(
         user_agent=ua,
         viewport={"width": random.randint(1200, 1400), "height": random.randint(700, 900)},
         locale="en-US",
-        timezone_id="America/New_York",
+        timezone_id=tz,
     )
     page = await context.new_page()
     stealth = Stealth()
     await stealth.apply_stealth_async(page)
-    # Extra anti-detection: override webdriver flag
+    # Override webdriver flag only (no fake plugins — they trigger detection)
     await page.add_init_script("""
         Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
-        Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]});
         window.chrome = {runtime: {}};
     """)
     try:
-            # --- WARMUP: browse like a human before Amazon ---
-            app.log("2. Warmup browsing...")
-            # Google
-            for _retry in range(3):
-                try:
-                    await page.goto("https://www.google.com", wait_until="domcontentloaded", timeout=15000)
-                    break
-                except Exception as e:
-                    if _retry < 2:
-                        app.log(f"   Google retry {_retry+1}... ({e})")
-                        await asyncio.sleep(3)
-                    else:
-                        raise
-            await page.wait_for_timeout(random.randint(1500, 3000))
-            # Random mouse movements on Google
-            for _ in range(random.randint(2, 4)):
-                await page.mouse.move(random.randint(100, 800), random.randint(100, 500))
-                await page.wait_for_timeout(random.randint(300, 800))
-            # Visit Amazon homepage first (not directly register)
-            app.log("   Amazon homepage warmup...")
-            await page.goto("https://www.amazon.com", wait_until="domcontentloaded", timeout=20000)
-            await page.wait_for_timeout(random.randint(2000, 4000))
-            # Random scroll on Amazon homepage
-            await page.mouse.wheel(0, random.randint(200, 500))
-            await page.wait_for_timeout(random.randint(1000, 2000))
-            await page.mouse.move(random.randint(200, 600), random.randint(200, 400))
-            await page.wait_for_timeout(random.randint(500, 1500))
-
-            app.log("3. Amazon register page...")
+            # Direct to Amazon Developer register page (no warmup — reduces CAPTCHA)
+            app.log("2. Amazon register page...")
             await page.goto(AMAZON_REGISTER_URL, wait_until="domcontentloaded", timeout=30000)
             await page.wait_for_timeout(random.randint(2500, 4000))
 
