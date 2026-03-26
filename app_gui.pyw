@@ -567,15 +567,25 @@ async def run_playwright_flow(app, prenom, nom, email, out_pass, dev_info=None):
                         continue
                 await page_outlook.wait_for_timeout(3000)
 
-                # Dismiss "newest Outlook" popup (No, thanks)
-                try:
-                    no_thanks = page_outlook.locator("button:has-text('No, thanks'), button:has-text('No thanks')").first
-                    if await no_thanks.is_visible():
-                        await no_thanks.click()
-                        app.log("   Outlook popup dismissed (No, thanks)")
-                        await page_outlook.wait_for_timeout(2000)
-                except Exception:
-                    pass
+                # Dismiss "newest Outlook" popup (No thanks / 不，谢谢 / Non merci / etc)
+                for dismiss_sel in [
+                    "button:has-text('No, thanks')", "button:has-text('No thanks')",
+                    "button:has-text('不，谢谢')", "button:has-text('Non, merci')",
+                    "button:has-text('Non merci')", "button:has-text('Nein, danke')",
+                    "button:has-text('No, gracias')", "button:has-text('Niet, bedankt')",
+                    "a:has-text('No, thanks')", "a:has-text('不，谢谢')",
+                    "button[aria-label*='No']", "button[aria-label*='dismiss']",
+                    "button[aria-label*='close']", "button[aria-label*='Cancel']",
+                ]:
+                    try:
+                        el = page_outlook.locator(dismiss_sel).first
+                        if await el.is_visible():
+                            await el.click()
+                            app.log(f"   Outlook popup dismissed: {dismiss_sel}")
+                            await page_outlook.wait_for_timeout(2000)
+                            break
+                    except Exception:
+                        continue
 
                 app.log("   Dkhlna Outlook - inbox mafat7!")
                 try:
