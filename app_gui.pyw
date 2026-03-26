@@ -1222,7 +1222,8 @@ async def setup_2fa_flow(app, email, password):
                 await page.wait_for_timeout(2000)
 
             otp = None
-            if otp_found:
+            # Always go to Outlook to get OTP (even if field not found yet)
+            if True:
                 # === OUTLOOK FLOW (same as main creation flow) ===
                 flog("=== 2FA OUTLOOK FLOW START ===")
                 try:
@@ -1392,31 +1393,49 @@ async def setup_2fa_flow(app, email, password):
                     flog(f"2FA OUTLOOK ERROR: {outlook_err}")
                     app.log(f"2FA Outlook error: {outlook_err}")
 
-            if otp and otp_found and otp_sel:
+            if otp:
                 app.log("2FA: Pasting OTP into Amazon...")
                 await page.bring_to_front()
                 await page.wait_for_timeout(2000)
-                # Find the actual <input> inside the OTP container (may be a div wrapper)
-                actual_input = None
-                try:
-                    tag = await otp_found.evaluate("el => el.tagName.toLowerCase()")
-                    if tag != "input":
-                        # It's a wrapper div, find input inside
-                        inner = page.locator(f"{otp_sel} input").first
-                        if await inner.is_visible():
-                            actual_input = inner
-                            otp_sel = f"{otp_sel} input"
-                except Exception:
-                    pass
-                if actual_input:
-                    await actual_input.fill("")
-                    await pw_human_type(page, otp_sel, otp)
-                else:
+
+                # Re-find OTP field if not found earlier
+                if not otp_found or not otp_sel:
+                    for sel in otp_selectors:
+                        try:
+                            el = page.locator(sel).first
+                            if await el.is_visible():
+                                otp_found = el
+                                otp_sel = sel
+                                break
+                        except Exception:
+                            continue
+
+                if otp_found and otp_sel:
+                    # Find the actual <input> inside the OTP container (may be a div wrapper)
+                    actual_input = None
                     try:
-                        await otp_found.fill("")
+                        tag = await otp_found.evaluate("el => el.tagName.toLowerCase()")
+                        if tag != "input":
+                            inner = page.locator(f"{otp_sel} input").first
+                            if await inner.is_visible():
+                                actual_input = inner
+                                otp_sel = f"{otp_sel} input"
                     except Exception:
                         pass
-                    await pw_human_type(page, otp_sel, otp)
+                    if actual_input:
+                        await actual_input.fill("")
+                        await pw_human_type(page, otp_sel, otp)
+                    else:
+                        try:
+                            await otp_found.fill("")
+                        except Exception:
+                            pass
+                        await pw_human_type(page, otp_sel, otp)
+                else:
+                    # Last resort: type into whatever input is focused
+                    app.log("2FA: OTP field not found, typing directly...")
+                    await page.keyboard.type(otp, delay=80)
+
                 await page.wait_for_timeout(500)
                 for btn in ["#cvf-input-code-btn", "input[value='Verify']",
                             "button:has-text('Verify')", "button:has-text('Submit code')",
