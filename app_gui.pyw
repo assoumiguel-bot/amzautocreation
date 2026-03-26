@@ -1450,12 +1450,10 @@ async def setup_2fa_flow(app, email, password):
                         continue
                 await page.wait_for_timeout(5000)
             elif not otp:
-                app.log("2FA: No OTP — cannot sign in. SKIP.")
-                app._last_result = "SKIP_VERIFICATION"
-                return None
+                app.log("2FA: OTP mal9ach — retrying...")
 
-        # 5. Now go to 2FA setup page
-        app.log("2FA: Going to 2FA setup page...")
+        # 5. Session active — go directly to 2FA setup page
+        app.log("2FA: Session active, going to 2FA setup page...")
         await page.goto(AMAZON_2FA_URL, wait_until="domcontentloaded", timeout=30000)
         await page.wait_for_timeout(4000)
 
@@ -2654,26 +2652,35 @@ class App:
 
                 self.log(f"Email: {email}")
                 self._last_result = None
-                try:
-                    # Connect VPN
-                    self.connect_vpn_proton_country(country)
-                    # Run 2FA setup
-                    totp_secret = asyncio.run(setup_2fa_flow(self, email, password))
-                    if totp_secret:
-                        results["ok"].append(email)
-                        self.log(f"2FA OK: {email}")
-                        self._update_table_status(idx, "ok")
-                        self._update_sheet_status(email, "2fa_ok")
-                        self._update_sheet_totp(email, totp_secret)
-                    else:
-                        results["skip"].append(email)
-                        self.log(f"2FA SKIP: {email}")
-                        self._update_table_status(idx, "skip")
-                        self._update_sheet_status(email, "2fa_fail")
-                except Exception as e:
-                    flog(f"2FA BATCH EXCEPTION: {type(e).__name__}: {e}")
+                max_retries = 3
+                totp_secret = None
+                for retry in range(max_retries):
+                    if self._stop_flag:
+                        break
+                    if retry > 0:
+                        self.log(f"2FA RETRY {retry+1}/{max_retries} for {email}...")
+                        self.root.after(0, lambda s=step, t=total, r=retry: self.batch_progress_var.set(f"2FA {s+1}/{t} (retry {r+1})"))
+                        time.sleep(3)
+                    try:
+                        # Connect VPN (new VPN each retry)
+                        self.connect_vpn_proton_country(country)
+                        # Run 2FA setup
+                        totp_secret = asyncio.run(setup_2fa_flow(self, email, password))
+                        if totp_secret:
+                            results["ok"].append(email)
+                            self.log(f"2FA OK: {email}")
+                            self._update_table_status(idx, "ok")
+                            self._update_sheet_status(email, "2fa_ok")
+                            self._update_sheet_totp(email, totp_secret)
+                            break
+                        else:
+                            self.log(f"2FA attempt {retry+1} failed for {email}")
+                    except Exception as e:
+                        flog(f"2FA BATCH EXCEPTION (attempt {retry+1}): {type(e).__name__}: {e}")
+                        self.log(f"2FA attempt {retry+1} error: {e}")
+                if not totp_secret and not self._stop_flag:
                     results["fail"].append(email)
-                    self.log(f"2FA FAIL: {email} - {e}")
+                    self.log(f"2FA FAIL after {max_retries} retries: {email}")
                     self._update_table_status(idx, "fail")
                     self._update_sheet_status(email, "2fa_fail")
 
@@ -2830,20 +2837,31 @@ class App:
                     self.log(f"OK: {email}")
                     self._update_table_status(idx, "ok")
                     self._update_sheet_status(email, "ok")
-                    # Auto setup 2FA after successful creation
+                    # Auto setup 2FA after successful creation (retry up to 3x)
                     if not self._stop_flag:
                         self.log(f"2FA: Auto-setup for {email}...")
-                        try:
-                            totp_secret = asyncio.run(setup_2fa_flow(self, email, out_pass))
-                            if totp_secret:
-                                self.log(f"2FA OK: {email}")
-                                self._update_sheet_status(email, "ok+2fa")
-                                self._update_sheet_totp(email, totp_secret)
-                            else:
-                                self.log(f"2FA FAILED: {email} — account created but 2FA not set")
-                        except Exception as tfa_err:
-                            flog(f"2FA auto error: {tfa_err}")
-                            self.log(f"2FA ERROR: {tfa_err} — account created but 2FA not set")
+                        tfa_secret = None
+                        for tfa_retry in range(3):
+                            if self._stop_flag:
+                                break
+                            if tfa_retry > 0:
+                                self.log(f"2FA: Retry {tfa_retry+1}/3 for {email}...")
+                                time.sleep(3)
+                                self.connect_vpn_proton_country(country)
+                            try:
+                                tfa_secret = asyncio.run(setup_2fa_flow(self, email, out_pass))
+                                if tfa_secret:
+                                    self.log(f"2FA OK: {email}")
+                                    self._update_sheet_status(email, "ok+2fa")
+                                    self._update_sheet_totp(email, tfa_secret)
+                                    break
+                                else:
+                                    self.log(f"2FA attempt {tfa_retry+1} failed for {email}")
+                            except Exception as tfa_err:
+                                flog(f"2FA auto error (attempt {tfa_retry+1}): {tfa_err}")
+                                self.log(f"2FA attempt {tfa_retry+1} error: {tfa_err}")
+                        if not tfa_secret and not self._stop_flag:
+                            self.log(f"2FA FAILED after 3 retries: {email} — account created but 2FA not set")
             except Exception as e:
                 flog(f"=== BATCH EXCEPTION for {email}: {type(e).__name__}: {e} ===")
                 # Check _last_result first — it may have been set before the exception
