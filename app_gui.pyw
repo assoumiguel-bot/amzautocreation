@@ -262,6 +262,8 @@ async def run_playwright_flow(app, prenom, nom, email, out_pass, dev_info=None):
             otp_found = None
             otp_sel = None
             phone_retries = 0
+            _stuck_url = ""
+            _stuck_count = 0
             flog("=== OTP LOOP START ===")
             for loop in range(50):
                 if app._stop_flag or getattr(app, '_skip_flag', False):
@@ -452,6 +454,92 @@ async def run_playwright_flow(app, prenom, nom, email, out_pass, dev_info=None):
                         app.update_status("CAPTCHA - SKIP", "red")
                         app._last_result = "SKIP_CAPTCHA"
                         return
+
+                # === STUCK DETECTION: analyze page and take action ===
+                cur_url = page.url
+                if cur_url == _stuck_url:
+                    _stuck_count += 1
+                else:
+                    _stuck_url = cur_url
+                    _stuck_count = 0
+
+                if _stuck_count >= 5:
+                    app.log(f"   STUCK detected ({_stuck_count} loops on same URL)! Analyzing...")
+                    try:
+                        stuck_text = (await page.inner_text("body")).lower() if await page.query_selector("body") else ""
+                    except Exception:
+                        stuck_text = ""
+                    stuck_url_lower = cur_url.lower()
+
+                    # On sign-in page → go back to register
+                    if "signin" in stuck_url_lower or "sign-in" in stuck_url_lower or "ap/signin" in stuck_url_lower:
+                        app.log("   STUCK on sign-in → going back to register...")
+                        await page.goto(AMAZON_REGISTER_URL, wait_until="domcontentloaded", timeout=30000)
+                        await page.wait_for_timeout(3000)
+                        # Try to click Create
+                        for cs in ["a:has-text('Create your Amazon Developer account')",
+                                    "button:has-text('Create your Amazon Developer account')",
+                                    "a[id='createAccountSubmit']", "a:has-text('Create account')"]:
+                            try:
+                                el = page.locator(cs).first
+                                if await el.is_visible():
+                                    await el.click()
+                                    app.log(f"   Clicked: {cs}")
+                                    await page.wait_for_timeout(3000)
+                                    break
+                            except Exception:
+                                continue
+                        _stuck_count = 0
+                        continue
+
+                    # On amazon.com homepage → go to register
+                    elif "amazon.com" in stuck_url_lower and "/ap/" not in stuck_url_lower and "developer" not in stuck_url_lower:
+                        app.log("   STUCK on Amazon homepage → going to register...")
+                        await page.goto(AMAZON_REGISTER_URL, wait_until="domcontentloaded", timeout=30000)
+                        await page.wait_for_timeout(3000)
+                        _stuck_count = 0
+                        continue
+
+                    # On developer.amazon.com → probably done, break
+                    elif "developer.amazon.com" in stuck_url_lower and "registration" not in stuck_url_lower:
+                        app.log("   On Developer dashboard → seems done!")
+                        break
+
+                    # Password re-entry needed
+                    elif "password" in stuck_text[:500] or await page.query_selector("input[type='password']"):
+                        app.log("   STUCK: password re-entry needed...")
+                        pw_el = None
+                        for sel in ["#ap_password", "input[type='password']"]:
+                            try:
+                                el = page.locator(sel).first
+                                if await el.is_visible():
+                                    pw_el = el
+                                    break
+                            except Exception:
+                                continue
+                        if pw_el:
+                            await pw_el.click()
+                            await page.keyboard.type(out_pass, delay=80)
+                            for btn in ["#signInSubmit", "input[type='submit']", "button[type='submit']"]:
+                                try:
+                                    el = page.locator(btn).first
+                                    if await el.is_visible():
+                                        await el.click()
+                                        break
+                                except Exception:
+                                    continue
+                            await page.wait_for_timeout(4000)
+                        _stuck_count = 0
+                        continue
+
+                    # Unknown page → refresh
+                    else:
+                        app.log(f"   STUCK on unknown page → refreshing... ({cur_url[:60]})")
+                        await page.reload(wait_until="domcontentloaded", timeout=20000)
+                        await page.wait_for_timeout(3000)
+                        _stuck_count = 0
+                        continue
+
                 await page.wait_for_timeout(1000)
 
             flog(f"OTP loop done. otp_found={otp_found is not None}, otp_sel={otp_sel}")
