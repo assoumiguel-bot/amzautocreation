@@ -1461,16 +1461,34 @@ async def run_2fa_only(app, email, out_pass):
         )
         page = await context.new_page()
 
-        # Go to Amazon sign-in first
+        # Go to Amazon sign-in
         app.log("2FA: Signing in to Amazon...")
-        await page.goto("https://www.amazon.com/ap/signin?openid.return_to=https%3A%2F%2Fwww.amazon.com&openid.assoc_handle=usflex&openid.mode=checkid_setup&openid.ns=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0", wait_until="domcontentloaded", timeout=30000)
+        await page.goto("https://www.amazon.com/ap/signin?openid.pape.max_auth_age=0&openid.return_to=https%3A%2F%2Fwww.amazon.com%2F&openid.assoc_handle=usflex&openid.mode=checkid_setup&openid.ns=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0", wait_until="domcontentloaded", timeout=30000)
         await page.wait_for_timeout(3000)
+
+        # If landed on Create Account page, click "Sign in" link
+        if await page.query_selector("#ap_customer_name"):
+            app.log("2FA: Landed on Create page — clicking Sign in...")
+            for sel in ["a:has-text('Sign in')", "a:has-text('Already have an account')",
+                        "a[href*='signin']"]:
+                try:
+                    el = page.locator(sel).first
+                    if await el.is_visible():
+                        await el.click()
+                        await page.wait_for_timeout(3000)
+                        break
+                except Exception:
+                    continue
 
         # Enter email
         for sel in ["#ap_email", "input[type='email']", "input[placeholder*='email']", "input[placeholder*='mobile']"]:
             try:
                 el = page.locator(sel).first
                 if await el.is_visible():
+                    # Make sure we're NOT on Create form
+                    name_field = await page.query_selector("#ap_customer_name")
+                    if name_field:
+                        continue
                     await el.fill("")
                     await el.type(email, delay=80)
                     app.log(f"2FA: Email entered in {sel}")
@@ -1807,7 +1825,7 @@ class App:
         ttk.Label(table_btn_frame, text="Filter:", foreground="#2c3e50").pack(side="left", padx=2)
         self.filter_var = tk.StringVar(value="Empty status")
         self.filter_combo = ttk.Combobox(table_btn_frame, textvariable=self.filter_var, width=18, state="readonly")
-        self.filter_combo['values'] = ("Empty status", "Retry (empty+captcha+2fa_fail)", "All accounts", "By country...")
+        self.filter_combo['values'] = ("Empty status", "Retry (empty+captcha+2fa_fail)", "Need 2FA (ok)", "All accounts", "By country...")
         self.filter_combo.pack(side="left", padx=3)
         self.filter_combo.bind("<<ComboboxSelected>>", self._on_filter_change)
         self.country_filter_var = tk.StringVar(value="")
@@ -2041,6 +2059,8 @@ class App:
             filtered = [r for r in rows if not r.get("status", "").strip()]
         elif filt.startswith("Retry"):
             filtered = [r for r in rows if r.get("status", "").strip().lower() in RETRY_STATUSES]
+        elif filt.startswith("Need 2FA"):
+            filtered = [r for r in rows if r.get("status", "").strip().lower() == "ok"]
         elif filt == "All accounts":
             filtered = list(rows)
         elif filt == "By country...":
