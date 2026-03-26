@@ -127,35 +127,7 @@ async def run_playwright_flow(app, prenom, nom, email, out_pass, dev_info=None):
         window.chrome = {runtime: {}};
     """)
     try:
-            # --- WARMUP: browse like a human before Amazon ---
-            app.log("2. Warmup browsing...")
-            # Google
-            for _retry in range(3):
-                try:
-                    await page.goto("https://www.google.com", wait_until="domcontentloaded", timeout=15000)
-                    break
-                except Exception as e:
-                    if _retry < 2:
-                        app.log(f"   Google retry {_retry+1}... ({e})")
-                        await asyncio.sleep(3)
-                    else:
-                        raise
-            await page.wait_for_timeout(random.randint(1500, 3000))
-            # Random mouse movements on Google
-            for _ in range(random.randint(2, 4)):
-                await page.mouse.move(random.randint(100, 800), random.randint(100, 500))
-                await page.wait_for_timeout(random.randint(300, 800))
-            # Visit Amazon homepage first (not directly register)
-            app.log("   Amazon homepage warmup...")
-            await page.goto("https://www.amazon.com", wait_until="domcontentloaded", timeout=20000)
-            await page.wait_for_timeout(random.randint(2000, 4000))
-            # Random scroll on Amazon homepage
-            await page.mouse.wheel(0, random.randint(200, 500))
-            await page.wait_for_timeout(random.randint(1000, 2000))
-            await page.mouse.move(random.randint(200, 600), random.randint(200, 400))
-            await page.wait_for_timeout(random.randint(500, 1500))
-
-            app.log("3. Amazon register page...")
+            app.log("2. Amazon Developer register page...")
             await page.goto(AMAZON_REGISTER_URL, wait_until="domcontentloaded", timeout=30000)
             await page.wait_for_timeout(random.randint(2500, 4000))
 
@@ -1109,40 +1081,113 @@ async def setup_2fa_flow(app, email, password):
             window.chrome = {runtime: {}};
         """)
 
-        # 1. Go to Amazon sign-in
-        app.log("2FA: Amazon sign-in...")
-        await page.goto("https://www.amazon.com/ap/signin?openid.return_to=https%3A%2F%2Fwww.amazon.com&openid.mode=checkid_setup&openid.assoc_handle=usflex&openid.ns=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0", wait_until="domcontentloaded", timeout=30000)
+        # 1. Go to Amazon 2FA setup directly (will redirect to sign-in if needed)
+        app.log("2FA: Going to 2FA setup page...")
+        await page.goto(AMAZON_2FA_URL, wait_until="domcontentloaded", timeout=30000)
         await page.wait_for_timeout(random.randint(2000, 3000))
 
-        # 2. Enter email
-        app.log("2FA: Entering email...")
-        if await page.query_selector("#ap_email"):
-            await pw_human_type(page, "#ap_email", email)
-            await page.wait_for_timeout(800)
-        for btn in ["#continue", "input[type='submit']", "#signInSubmit"]:
-            try:
-                el = page.locator(btn).first
-                if await el.is_visible():
-                    await el.click()
-                    break
-            except Exception:
-                continue
-        await page.wait_for_timeout(3000)
+        # 2. Handle sign-in if redirected
+        for _signin_attempt in range(3):
+            current_url = page.url.lower()
+            app.log(f"2FA: Sign-in check #{_signin_attempt+1}, URL: {page.url[:80]}")
 
-        # 3. Enter password
-        app.log("2FA: Entering password...")
-        if await page.query_selector("#ap_password"):
-            await pw_human_type(page, "#ap_password", password)
-            await page.wait_for_timeout(800)
-        for btn in ["#signInSubmit", "input[type='submit']", "#auth-signin-button"]:
-            try:
-                el = page.locator(btn).first
-                if await el.is_visible():
-                    await el.click()
+            # Check for email/login input (old + new Amazon sign-in pages)
+            email_selectors = ["#ap_email", "input[type='email']", "input[name='email']",
+                              "input[placeholder*='email']", "input[placeholder*='mobile']",
+                              "input[name='field-keywords']"]
+            email_el = None
+            email_sel = None
+            for sel in email_selectors:
+                try:
+                    el = page.locator(sel).first
+                    if await el.is_visible():
+                        email_el = el
+                        email_sel = sel
+                        break
+                except Exception:
+                    continue
+
+            # Also check for password field
+            pass_selectors = ["#ap_password", "input[type='password']", "input[name='password']"]
+            pass_el = None
+            pass_sel = None
+            for sel in pass_selectors:
+                try:
+                    el = page.locator(sel).first
+                    if await el.is_visible():
+                        pass_el = el
+                        pass_sel = sel
+                        break
+                except Exception:
+                    continue
+
+            if not email_el and not pass_el:
+                # Not on sign-in page
+                if "approval" in current_url or "settings" in current_url or "mfa" in current_url:
+                    app.log("2FA: Already on 2FA setup page")
                     break
-            except Exception:
-                continue
-        await page.wait_for_timeout(5000)
+                if "amazon.com" in current_url and "ap/" not in current_url:
+                    app.log("2FA: On Amazon homepage, retrying 2FA URL...")
+                    await page.goto(AMAZON_2FA_URL, wait_until="domcontentloaded", timeout=30000)
+                    await page.wait_for_timeout(3000)
+                    continue
+                break
+
+            # Enter email if visible
+            if email_el:
+                app.log(f"2FA: Entering email in {email_sel}...")
+                await email_el.click()
+                await page.wait_for_timeout(300)
+                await page.keyboard.type(email, delay=random.randint(60, 120))
+                await page.wait_for_timeout(800)
+                # Click continue
+                for btn in ["#continue", "input[type='submit']", "#signInSubmit",
+                            "button:has-text('Continue')", "button:has-text('Sign in')",
+                            "span.a-button-text", "#auth-signin-button-announce"]:
+                    try:
+                        el = page.locator(btn).first
+                        if await el.is_visible():
+                            await el.click()
+                            app.log(f"   Clicked: {btn}")
+                            break
+                    except Exception:
+                        continue
+                await page.wait_for_timeout(3000)
+
+            # Re-check for password field after email submit
+            pass_el = None
+            pass_sel = None
+            for sel in pass_selectors:
+                try:
+                    el = page.locator(sel).first
+                    if await el.is_visible():
+                        pass_el = el
+                        pass_sel = sel
+                        break
+                except Exception:
+                    continue
+
+            if pass_el:
+                app.log(f"2FA: Entering password in {pass_sel}...")
+                await pass_el.click()
+                await page.wait_for_timeout(300)
+                await page.keyboard.type(password, delay=random.randint(60, 120))
+                await page.wait_for_timeout(800)
+                for btn in ["#signInSubmit", "input[type='submit']", "#auth-signin-button",
+                            "button:has-text('Sign in')", "button:has-text('Sign-In')",
+                            "button[type='submit']"]:
+                    try:
+                        el = page.locator(btn).first
+                        if await el.is_visible():
+                            await el.click()
+                            app.log(f"   Clicked: {btn}")
+                            break
+                    except Exception:
+                        continue
+                await page.wait_for_timeout(5000)
+                break
+
+        app.log(f"2FA: After sign-in, URL: {page.url}")
 
         # 4. Check if we need OTP for sign-in (Amazon may ask for email verification)
         page_text = ""
@@ -1150,12 +1195,18 @@ async def setup_2fa_flow(app, email, password):
             page_text = await page.inner_text("body")
         except Exception:
             pass
-        if "verification" in page_text.lower() or "cvf" in page.url.lower():
-            app.log("2FA: Amazon demands verification for sign-in — attempting OTP from Outlook...")
-            # Wait for OTP field
+        if "verification" in page_text.lower() or "cvf" in page.url.lower() or "otp" in page.url.lower():
+            app.log("2FA: Amazon demands OTP verification — going to Outlook...")
+            # Wait for OTP field on Amazon
             otp_found = None
             otp_sel = None
-            otp_selectors = ["#cvf_input_code", "#cvf-input-code", "input[name='otc']", "input[name='claimCode']", "input[autocomplete='one-time-code']", "input[placeholder*='code']", "input[maxlength='6']"]
+            otp_selectors = ["#cvf_input_code", "#cvf-input-code", "#cvf-a-input-code",
+                            "input[name='otc']", "input[name='claimCode']", "input[name='code']",
+                            "input[autocomplete='one-time-code']", "input[placeholder*='code']",
+                            "input[maxlength='6']", "input[maxlength='7']",
+                            "input[type='text'][class*='cvf']", "input[type='tel']",
+                            "input[type='number']", "input.a-input-text",
+                            "input[type='text']"]
             for _ in range(10):
                 for sel in otp_selectors:
                     try:
@@ -1170,42 +1221,200 @@ async def setup_2fa_flow(app, email, password):
                     break
                 await page.wait_for_timeout(2000)
 
+            otp = None
             if otp_found:
-                # Get OTP from Outlook
-                otp = None
+                # === OUTLOOK FLOW (same as main creation flow) ===
+                flog("=== 2FA OUTLOOK FLOW START ===")
                 try:
-                    from outlook_otp import get_amazon_otp
-                    otp = get_amazon_otp(email, password)
-                except Exception as e:
-                    flog(f"2FA Outlook OTP error: {e}")
-
-                if not otp:
-                    # Ask manually
-                    otp_event = threading.Event()
-                    otp_manual = [None]
-                    def _ask():
-                        val = tk.simpledialog.askstring("2FA - OTP", f"Amazon tlab OTP l {email}.\nKteb OTP (6 ar9am):")
-                        otp_manual[0] = val
-                        otp_event.set()
-                    app.root.after(0, _ask)
-                    otp_event.wait(timeout=120)
-                    otp = otp_manual[0].strip() if otp_manual[0] else None
-
-                if otp:
-                    await otp_found.fill("")
-                    await pw_human_type(page, otp_sel, otp)
-                    await page.wait_for_timeout(500)
-                    for btn in ["#cvf-input-code-btn", "input[value='Verify']", "button:has-text('Verify')", "button[type='submit']", "input[type='submit']"]:
+                    page_outlook = await context.new_page()
+                    app.log("2FA: Outlook login...")
+                    await page_outlook.goto("https://login.live.com/", wait_until="domcontentloaded", timeout=30000)
+                    # Email
+                    email_input = page_outlook.locator("#usernameEntry, #i0116, input[type='email'], input[name='loginfmt']").first
+                    await email_input.wait_for(state="visible", timeout=10000)
+                    await email_input.click()
+                    await page_outlook.wait_for_timeout(200)
+                    await page_outlook.keyboard.type(email, delay=80)
+                    await page_outlook.wait_for_timeout(400)
+                    suivant = page_outlook.locator("#idSIButton9, input[type='submit'], button[type='submit']").first
+                    await suivant.wait_for(state="visible", timeout=8000)
+                    await suivant.click()
+                    await page_outlook.wait_for_timeout(4000)
+                    # Password
+                    pw_input = page_outlook.locator("#i0118, input[type='password'], input[name='passwd']").first
+                    await pw_input.wait_for(state="visible", timeout=12000)
+                    await pw_input.click()
+                    await page_outlook.wait_for_timeout(200)
+                    await page_outlook.keyboard.type(password, delay=80)
+                    await page_outlook.wait_for_timeout(400)
+                    suivant2 = page_outlook.locator("#idSIButton9, input[type='submit'], button[type='submit']").first
+                    await suivant2.wait_for(state="visible", timeout=8000)
+                    try:
+                        await suivant2.click(timeout=8000, no_wait_after=True)
+                    except Exception:
+                        pass
+                    await page_outlook.wait_for_timeout(8000)
+                    # "Stay signed in?" - No
+                    try:
+                        await page_outlook.locator("#idBtn_Back").click(timeout=3000)
+                        await page_outlook.wait_for_timeout(2000)
+                    except Exception:
+                        pass
+                    # Dismiss passkey/interrupt
+                    for _ in range(5):
+                        await page_outlook.wait_for_timeout(2000)
+                        if "passkey" in page_outlook.url or "interrupt" in page_outlook.url:
+                            for sel in ["button:has-text('Annuler')", "button:has-text('Cancel')", "button:has-text('Skip')", "button:has-text('Not now')"]:
+                                try:
+                                    el = page_outlook.locator(sel).first
+                                    if await el.is_visible():
+                                        await el.click()
+                                        await page_outlook.wait_for_timeout(2000)
+                                        break
+                                except Exception:
+                                    continue
+                        else:
+                            break
+                    # Go to inbox
+                    app.log("2FA: Outlook inbox...")
+                    await page_outlook.goto("https://outlook.live.com/mail/0/inbox", wait_until="domcontentloaded", timeout=40000)
+                    await page_outlook.wait_for_timeout(5000)
+                    if "login" in page_outlook.url or "live.com/login" in page_outlook.url:
+                        await page_outlook.wait_for_timeout(10000)
+                    # Wait for inbox
+                    for search_sel in ["#topSearchInput", "input[aria-label*='Search']", "input[placeholder*='Search']", "input[placeholder*='Rechercher']", "div[role='main']"]:
                         try:
-                            await page.click(btn, timeout=3000)
+                            await page_outlook.locator(search_sel).first.wait_for(state="visible", timeout=20000)
                             break
                         except Exception:
                             continue
-                    await page.wait_for_timeout(5000)
-                else:
-                    app.log("2FA: No OTP — cannot sign in. SKIP.")
-                    app._last_result = "SKIP_VERIFICATION"
-                    return None
+                    await page_outlook.wait_for_timeout(3000)
+                    # Dismiss popup
+                    try:
+                        no_thanks = page_outlook.locator("button:has-text('No, thanks'), button:has-text('No thanks')").first
+                        if await no_thanks.is_visible():
+                            await no_thanks.click()
+                            await page_outlook.wait_for_timeout(2000)
+                    except Exception:
+                        pass
+                    # Search Amazon
+                    app.log("2FA: Searching Amazon email...")
+                    for sel in ["#topSearchInput", "input[aria-label*='Search']", "input[placeholder*='Search']", "input[placeholder*='Rechercher']"]:
+                        try:
+                            s = page_outlook.locator(sel).first
+                            if await s.is_visible():
+                                await s.click()
+                                await page_outlook.wait_for_timeout(500)
+                                await page_outlook.keyboard.type("Amazon", delay=80)
+                                await page_outlook.keyboard.press("Enter")
+                                break
+                        except Exception:
+                            continue
+                    await page_outlook.wait_for_timeout(6000)
+
+                    # OTP search with resend retry
+                    otp_matches = []
+                    for otp_attempt in range(3):
+                        if otp_attempt > 0:
+                            app.log(f"   OTP attempt {otp_attempt+1}/3 - Resend...")
+                            await page.bring_to_front()
+                            await page.wait_for_timeout(1000)
+                            for resend_sel in ["a:has-text('Resend OTP')", "a:has-text('Resend the code')", "a:has-text('Send again')", "a:has-text('Resend')", "button:has-text('Resend')", "#cvf-resend-link"]:
+                                try:
+                                    el = page.locator(resend_sel).first
+                                    if await el.is_visible():
+                                        await el.click()
+                                        break
+                                except Exception:
+                                    continue
+                            await page.wait_for_timeout(8000)
+                            await page_outlook.bring_to_front()
+                            await page_outlook.goto("https://outlook.live.com/mail/0/inbox", wait_until="domcontentloaded", timeout=30000)
+                            await page_outlook.wait_for_timeout(5000)
+                            for sel in ["#topSearchInput", "input[aria-label*='Search']", "input[placeholder*='Search']"]:
+                                try:
+                                    s = page_outlook.locator(sel).first
+                                    if await s.is_visible():
+                                        await s.click()
+                                        await page_outlook.wait_for_timeout(500)
+                                        await page_outlook.keyboard.type("Amazon", delay=80)
+                                        await page_outlook.keyboard.press("Enter")
+                                        break
+                                except Exception:
+                                    continue
+                            await page_outlook.wait_for_timeout(6000)
+
+                        # Click Amazon email
+                        for sel in ["[aria-label*='Amazon'], [aria-label*='Verify your new Amazon']", "div[role='listitem']", "div[role='option']", "[data-convid]"]:
+                            try:
+                                rows_ol = await page_outlook.query_selector_all(sel)
+                                for row_ol in rows_ol[:10]:
+                                    txt = await row_ol.text_content()
+                                    if txt and ("amazon" in txt.lower() or "verify" in txt.lower()):
+                                        await row_ol.click()
+                                        await page_outlook.wait_for_timeout(5000)
+                                        break
+                            except Exception:
+                                continue
+
+                        await page_outlook.wait_for_timeout(3000)
+                        msg_body = await page_outlook.content()
+                        otp_context = re.search(r'(?:One Time Password|security code|OTP)[^\d]{0,100}(\d{6})', msg_body, re.IGNORECASE | re.DOTALL)
+                        if otp_context:
+                            otp_matches = [otp_context.group(1)]
+                            app.log(f"   OTP found: {otp_matches[0]}")
+                            break
+                        else:
+                            clean_body = re.sub(r'#[0-9a-fA-F]{6}', '', msg_body)
+                            otp_matches = re.findall(r"\b\d{6}\b", clean_body)
+                        if otp_matches:
+                            app.log(f"   OTP found: {otp_matches[0]}")
+                            break
+                        else:
+                            app.log(f"   Attempt {otp_attempt+1}: OTP not found...")
+
+                    if otp_matches:
+                        otp = otp_matches[0]
+                        app.log(f"2FA: Got OTP: {otp}")
+                    else:
+                        # Ask manually
+                        otp_event = threading.Event()
+                        otp_manual = [None]
+                        def _ask_2fa_otp():
+                            val = tk.simpledialog.askstring("2FA - OTP", f"OTP mal9ach l {email}.\nKteb OTP (6 ar9am):")
+                            otp_manual[0] = val
+                            otp_event.set()
+                        app.root.after(0, _ask_2fa_otp)
+                        otp_event.wait(timeout=120)
+                        otp = otp_manual[0].strip() if otp_manual[0] else None
+
+                except Exception as outlook_err:
+                    flog(f"2FA OUTLOOK ERROR: {outlook_err}")
+                    app.log(f"2FA Outlook error: {outlook_err}")
+
+            if otp and otp_found and otp_sel:
+                app.log("2FA: Pasting OTP into Amazon...")
+                await page.bring_to_front()
+                await page.wait_for_timeout(2000)
+                await otp_found.fill("")
+                await pw_human_type(page, otp_sel, otp)
+                await page.wait_for_timeout(500)
+                for btn in ["#cvf-input-code-btn", "input[value='Verify']",
+                            "button:has-text('Verify')", "button:has-text('Submit code')",
+                            "button:has-text('Submit')", "input[value='Submit code']",
+                            "span:has-text('Submit code')", "button[type='submit']",
+                            "input[type='submit']"]:
+                    try:
+                        await page.click(btn, timeout=3000)
+                        app.log(f"   Clicked verify: {btn}")
+                        break
+                    except Exception:
+                        continue
+                await page.wait_for_timeout(5000)
+            elif not otp:
+                app.log("2FA: No OTP — cannot sign in. SKIP.")
+                app._last_result = "SKIP_VERIFICATION"
+                return None
 
         # 5. Now go to 2FA setup page
         app.log("2FA: Going to 2FA setup page...")
@@ -1247,71 +1456,145 @@ async def setup_2fa_flow(app, email, password):
             except Exception:
                 continue
 
+        # Take screenshot to debug what page we're on
+        try:
+            ss_path = os.path.join(BASE_DIR, f"2fa_page_{email.split('@')[0]}.png")
+            await page.screenshot(path=ss_path, full_page=True)
+            app.log(f"   Screenshot: {ss_path}")
+            flog(f"2FA screenshot saved: {ss_path}")
+        except Exception:
+            pass
+
+        # Log page URL and text for debugging
+        app.log(f"2FA: Current URL: {page.url}")
+        try:
+            body_text = await page.inner_text("body")
+            flog(f"2FA page text (first 500): {body_text[:500]}")
+        except Exception:
+            body_text = ""
+
         # 7. Look for "Can't scan the barcode?" or "enter key manually" link
-        app.log("2FA: Looking for TOTP secret key...")
+        app.log("2FA: Looking for 'Can't scan' link...")
+        cant_scan_clicked = False
         for sel in [
+            "a:has-text(\"Can't scan the barcode\")",
             "a:has-text(\"Can't scan\")",
+            "a:has-text('enter a key')",
             "a:has-text('enter it manually')",
-            "a:has-text('manually')",
-            "a:has-text('key')",
+            "a:has-text('manually enter')",
+            "a:has-text('type it')",
             "a:has-text('barcode')",
             "button:has-text(\"Can't scan\")",
-            "#auth-mfa-remember-device ~ a",
+            "span:has-text(\"Can't scan\")",
         ]:
             try:
                 el = page.locator(sel).first
                 if await el.is_visible():
                     await el.click()
                     app.log(f"   Clicked: {sel}")
-                    await page.wait_for_timeout(2000)
+                    cant_scan_clicked = True
+                    await page.wait_for_timeout(3000)
                     break
             except Exception:
                 continue
 
+        if not cant_scan_clicked:
+            app.log("2FA: 'Can't scan' link not found — trying to find secret on page anyway...")
+
+        # Take another screenshot after clicking
+        try:
+            ss2 = os.path.join(BASE_DIR, f"2fa_secret_{email.split('@')[0]}.png")
+            await page.screenshot(path=ss2, full_page=True)
+            flog(f"2FA secret page screenshot: {ss2}")
+        except Exception:
+            pass
+
         # 8. Extract the TOTP secret key
-        # Amazon shows it as text, usually in a <code>, <span>, or <input> element
         secret = None
+
+        # Method 1: Look for the key in specific elements
+        # Amazon shows it in a text field or bold text after clicking "Can't scan"
         for sel in [
-            "#secret-key",
-            "code",
-            ".a-text-bold",
-            "input[readonly]",
             "#totp-secret",
+            "#secret-key",
+            "input[id*='secret']",
+            "input[readonly]",
+            "code",
+            "kbd",
+            "pre",
+            ".a-text-bold",
             "span.a-text-bold",
+            "#auth-mfa-setup-description b",
+            "#auth-mfa-setup-description strong",
+            "div.a-alert-content b",
+            "b",
+            "strong",
         ]:
             try:
-                el = page.locator(sel).first
-                if await el.is_visible():
-                    text = await el.inner_text() if sel != "input[readonly]" else await el.input_value()
-                    text = text.strip().replace(" ", "")
-                    # TOTP secrets are typically 16-32 chars, base32 (A-Z, 2-7)
-                    if len(text) >= 16 and text.replace(" ", "").isalnum():
-                        secret = text
-                        app.log(f"   TOTP Secret found: {secret[:4]}...{secret[-4:]}")
-                        break
+                elements = page.locator(sel)
+                count = await elements.count()
+                for i in range(min(count, 10)):
+                    el = elements.nth(i)
+                    if await el.is_visible():
+                        if sel.startswith("input"):
+                            text = await el.input_value()
+                        else:
+                            text = await el.inner_text()
+                        text = text.strip()
+                        clean = text.replace(" ", "").replace("-", "")
+                        # TOTP secrets: 16-52 chars, base32 (A-Z, 2-7, sometimes lowercase)
+                        # Exclude common English words that match base32 pattern
+                        FAKE_SECRETS = {"entermobilenumberoremail", "enteremailormobilenumber",
+                                       "signinorcreateaccount", "continuetosignin", "createaccount"}
+                        if len(clean) >= 16 and len(clean) <= 52:
+                            import re as _re
+                            if _re.match(r'^[A-Za-z2-7]+$', clean) and clean.lower() not in FAKE_SECRETS:
+                                # Extra check: real TOTP secrets have mixed case/digits, not readable words
+                                has_digits = any(c in '234567' for c in clean)
+                                is_word = clean.lower().isalpha() and len(clean) < 30
+                                if has_digits or not is_word:
+                                    secret = clean.upper()
+                                    app.log(f"   TOTP Secret found via {sel}: {secret[:4]}...{secret[-4:]}")
+                                    flog(f"2FA secret found: {secret}")
+                                    break
             except Exception:
                 continue
+            if secret:
+                break
 
-        # Also try to find it from page text with regex
+        # Method 2: Regex from full page text
         if not secret:
             try:
                 page_text = await page.inner_text("body")
-                # Look for base32 key pattern (16+ uppercase + digits, groups of 4)
                 import re as _re
-                matches = _re.findall(r'[A-Z2-7]{4}[\s]?[A-Z2-7]{4}[\s]?[A-Z2-7]{4}[\s]?[A-Z2-7]{4,}', page_text)
-                if matches:
-                    secret = matches[0].replace(" ", "")
+                # Base32 keys: groups of letters/digits, 16+ chars
+                matches = _re.findall(r'\b([A-Z2-7]{16,52})\b', page_text)
+                # Filter out English words (real secrets have digits 2-7)
+                real_matches = [m for m in matches if any(c in '234567' for c in m)]
+                if not real_matches:
+                    real_matches = [m for m in matches if not m.isalpha()]
+                if real_matches:
+                    secret = max(real_matches, key=len)
                     app.log(f"   TOTP Secret (regex): {secret[:4]}...{secret[-4:]}")
-            except Exception:
-                pass
+                    flog(f"2FA secret (regex): {secret}")
+                else:
+                    # Try with spaces between groups
+                    matches2 = _re.findall(r'([A-Z2-7]{4}[\s]+[A-Z2-7]{4}[\s]+[A-Z2-7]{4}[\s]+[A-Z2-7]{4,})', page_text)
+                    if matches2:
+                        secret = matches2[0].replace(" ", "")
+                        app.log(f"   TOTP Secret (spaced): {secret[:4]}...{secret[-4:]}")
+                        flog(f"2FA secret (spaced): {secret}")
+            except Exception as e:
+                flog(f"2FA regex error: {e}")
 
         if not secret:
-            app.log("2FA: Could not find TOTP secret! Check page manually.")
-            # Take screenshot for debugging
+            app.log("2FA: Could not find TOTP secret!")
+            app.log("2FA: Check screenshots in project folder for debugging.")
+            flog(f"2FA FAILED: no secret found. URL={page.url}")
             try:
-                ss_path = os.path.join(BASE_DIR, f"2fa_debug_{email.split('@')[0]}.png")
-                await page.screenshot(path=ss_path)
-                app.log(f"   Screenshot saved: {ss_path}")
+                # Log all text on page for debugging
+                all_text = await page.inner_text("body")
+                flog(f"2FA full page text: {all_text[:2000]}")
             except Exception:
                 pass
             app._last_result = "2FA_FAILED"
@@ -2157,11 +2440,22 @@ class App:
                     reader = csv.DictReader(f)
                     rows = list(reader)
 
-            self.batch_rows = rows
-            self.batch_progress_var.set(f"{len(rows)} accounts loaded!")
-            self.log(f"Loaded: {len(rows)} accounts")
+            # Filter out accounts that already have ANY status
+            filtered = []
+            skipped = 0
+            for r in rows:
+                st = r.get("status", "").strip()
+                if st:
+                    skipped += 1
+                else:
+                    filtered.append(r)
+            self.batch_rows = filtered
+            if skipped:
+                self.log(f"Skipped {skipped} accounts (already have status)")
+            self.batch_progress_var.set(f"{len(filtered)} accounts loaded! ({skipped} skipped)")
+            self.log(f"Loaded: {len(filtered)} accounts ({skipped} already processed)")
             self._populate_table()
-            return rows
+            return filtered
         except Exception as e:
             messagebox.showerror("Error", f"Ma9dertch nqra l data:\n{e}")
             return []
@@ -2172,11 +2466,50 @@ class App:
         if rows:
             self.log(f"Imported {len(rows)} accounts. Select li bghiti o click BATCH.")
 
+    def _load_2fa_accounts(self):
+        """Load accounts that have status OK (created, need 2FA)"""
+        source = self.csv_path_var.get().strip()
+        if not source:
+            messagebox.showerror("Erreur", "Dakhel Google Sheets URL wla CSV file path!")
+            return []
+        try:
+            import csv, io
+            if source.startswith("http") and "google.com" in source:
+                sheet_id = self._get_sheet_id()
+                creds_path = os.path.join(BASE_DIR, "credentials.json")
+                if sheet_id and os.path.exists(creds_path):
+                    self.log("Loading 2FA accounts from Google Sheets...")
+                    import gspread
+                    from google.oauth2.service_account import Credentials
+                    scopes = ["https://www.googleapis.com/auth/spreadsheets"]
+                    creds = Credentials.from_service_account_file(creds_path, scopes=scopes)
+                    gc = gspread.authorize(creds)
+                    sh = gc.open_by_key(sheet_id)
+                    ws = sh.sheet1
+                    records = ws.get_all_records()
+                    rows = [{k: str(v) for k, v in r.items()} for r in records]
+                else:
+                    return []
+            else:
+                return []
+            # Only keep accounts with status "OK" (created but no 2FA yet)
+            OK_STATUSES = {"ok"}
+            filtered = [r for r in rows if r.get("status", "").strip().lower() in OK_STATUSES]
+            self.batch_rows = filtered
+            self.log(f"2FA: Found {len(filtered)} accounts with status OK")
+            self.batch_progress_var.set(f"{len(filtered)} accounts for 2FA")
+            self._populate_table()
+            return filtered
+        except Exception as e:
+            messagebox.showerror("Error", f"Ma9dertch nqra l data:\n{e}")
+            return []
+
     def _start_2fa(self):
-        """Start 2FA setup for selected accounts (or all)"""
+        """Start 2FA setup for selected accounts (or all with status OK)"""
         if not hasattr(self, 'batch_rows') or not self.batch_rows:
-            rows = self._load_csv_data()
+            rows = self._load_2fa_accounts()
             if not rows:
+                messagebox.showinfo("Info", "Ma kayn hta account b status OK!")
                 return
         if self._checked_rows:
             self._2fa_indices = sorted(self._checked_rows)
