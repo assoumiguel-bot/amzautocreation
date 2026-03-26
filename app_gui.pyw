@@ -395,25 +395,31 @@ async def run_playwright_flow(app, prenom, nom, email, out_pass, dev_info=None):
                                         except Exception:
                                             continue
                                     await page.wait_for_timeout(3000)
-                                    # After email → look for Create link (only <a> tags)
-                                    app.log("   Looking for 'Create' link after email...")
+                                    # After email → check for "cannot find account" and click Create
+                                    app.log("   Looking for 'Create' button after email...")
+                                    _found_create = False
                                     for cs in [
                                         "a:has-text('Create your Amazon Developer account')",
+                                        "button:has-text('Create your Amazon Developer account')",
                                         "a[id='createAccountSubmit']",
                                         "#auth-create-account-link",
                                         "a:has-text('Create your Amazon account')",
                                         "a:has-text('Create a new Amazon account')",
                                         "a:has-text('Create account')",
+                                        "button:has-text('Create account')",
                                     ]:
                                         try:
                                             cel = page.locator(cs).first
                                             if await cel.is_visible():
-                                                tag = await cel.evaluate("el => el.tagName.toLowerCase()")
-                                                if tag == "a":
-                                                    await cel.click()
-                                                    app.log(f"   Clicked: {cs}")
-                                                    await page.wait_for_timeout(3000)
+                                                # Don't click the yellow submit button on registration form
+                                                name_exists = await page.query_selector("#ap_customer_name")
+                                                if name_exists:
                                                     break
+                                                await cel.click()
+                                                app.log(f"   Clicked: {cs}")
+                                                _found_create = True
+                                                await page.wait_for_timeout(3000)
+                                                break
                                         except Exception:
                                             continue
                                     break
@@ -494,8 +500,13 @@ async def run_playwright_flow(app, prenom, nom, email, out_pass, dev_info=None):
                         stuck_text = ""
                     stuck_url_lower = cur_url.lower()
 
-                    # On sign-in page → go back to register
+                    # On sign-in page → check if "cannot find account" = SKIP
                     if "signin" in stuck_url_lower or "sign-in" in stuck_url_lower or "ap/signin" in stuck_url_lower:
+                        if "cannot find" in stuck_text or "no account" in stuck_text or phone_retries >= 2:
+                            app.log("   STUCK on sign-in with 'cannot find account' → SKIP")
+                            app.update_status("Sign-in stuck - SKIP", "red")
+                            app._last_result = "SKIP_VERIFICATION"
+                            return
                         app.log("   STUCK on sign-in → going back to register...")
                         await page.goto(AMAZON_REGISTER_URL, wait_until="domcontentloaded", timeout=30000)
                         await page.wait_for_timeout(3000)
@@ -506,6 +517,10 @@ async def run_playwright_flow(app, prenom, nom, email, out_pass, dev_info=None):
                             try:
                                 el = page.locator(cs).first
                                 if await el.is_visible():
+                                    # Don't click submit on registration form
+                                    name_exists = await page.query_selector("#ap_customer_name")
+                                    if name_exists:
+                                        break
                                     await el.click()
                                     app.log(f"   Clicked: {cs}")
                                     await page.wait_for_timeout(3000)
@@ -1512,7 +1527,7 @@ class App:
         ttk.Label(table_btn_frame, text="Filter:", foreground="#2c3e50").pack(side="left", padx=2)
         self.filter_var = tk.StringVar(value="Empty status")
         self.filter_combo = ttk.Combobox(table_btn_frame, textvariable=self.filter_var, width=18, state="readonly")
-        self.filter_combo['values'] = ("Empty status", "All accounts", "By country...")
+        self.filter_combo['values'] = ("Empty status", "Retry (empty+captcha+2fa_fail)", "All accounts", "By country...")
         self.filter_combo.pack(side="left", padx=3)
         self.filter_combo.bind("<<ComboboxSelected>>", self._on_filter_change)
         self.country_filter_var = tk.StringVar(value="")
@@ -1737,14 +1752,17 @@ class App:
             return
         filt = self.filter_var.get()
         rows = self._all_rows_unfiltered
+        RETRY_STATUSES = {"", "captcha", "2fa_fail"}
         if filt == "Empty status":
             filtered = [r for r in rows if not r.get("status", "").strip()]
+        elif filt.startswith("Retry"):
+            filtered = [r for r in rows if r.get("status", "").strip().lower() in RETRY_STATUSES]
         elif filt == "All accounts":
             filtered = list(rows)
         elif filt == "By country...":
             country = self.country_filter_var.get().strip()
             if country:
-                filtered = [r for r in rows if not r.get("status", "").strip() and r.get("country", "").strip() == country]
+                filtered = [r for r in rows if r.get("status", "").strip().lower() in RETRY_STATUSES and r.get("country", "").strip() == country]
             else:
                 filtered = [r for r in rows if not r.get("status", "").strip()]
         else:
