@@ -756,6 +756,14 @@ async def run_playwright_flow(app, prenom, nom, email, out_pass, dev_info=None):
                             app.log("OTP ma dakhalch - SKIP")
                             app._last_result = "SKIP_VERIFICATION"
 
+            # Close Outlook tab
+            try:
+                if page_outlook and not page_outlook.is_closed():
+                    await page_outlook.close()
+                    flog("Outlook tab closed")
+            except Exception:
+                pass
+
             # Paste OTP into Amazon if we have it
             flog(f"OTP paste check: otp={otp}, otp_found={otp_found is not None}, otp_sel={otp_sel}")
             if otp and otp_found and otp_sel:
@@ -1078,7 +1086,12 @@ async def run_playwright_flow(app, prenom, nom, email, out_pass, dev_info=None):
         is_batch = getattr(app, '_batch_mode', False)
         if is_batch:
             app.log("Closing Chrome...")
-            # Kill only bot's Chrome by PID, not user's Chrome
+            # Close browser properly first, then kill by PID as fallback
+            try:
+                await asyncio.wait_for(browser.close(), timeout=5)
+                flog("Browser closed gracefully")
+            except Exception:
+                pass
             _pid = getattr(app, '_browser_pid', None)
             if _pid:
                 try:
