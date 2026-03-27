@@ -315,147 +315,67 @@ async def run_playwright_flow(app, prenom, nom, email, out_pass, dev_info=None):
                         app._last_result = "SKIP_VERIFICATION"
                         return
 
-                    # Phone verification → retry or SKIP
+                    # Phone verification → fill phone number and continue
                     if ("verify your phone" in visible_lower or
                         "add mobile number" in visible_lower or
                         "add your mobile phone number" in visible_lower or
                         ("phone" in page_url_lower and "verify" in page_url_lower)):
-                        phone_indicators = await page.query_selector_all("input[type='tel']")
-                        page_has_otp = any("code" in (await p.get_attribute("name") or "").lower() for p in phone_indicators) if phone_indicators else False
-                        if phone_indicators and not page_has_otp:
-                            phone_retries += 1
-                            if phone_retries > 2:
-                                app.log(f"Phone tlab {phone_retries} mrat! SKIP had l account.")
-                                app.update_status("Phone asked 3x - SKIP", "red")
-                                app._last_result = "SKIP_VERIFICATION"
-                                return
-                            app.log(f"Amazon tlab phone number! Retry {phone_retries}/2...")
-                            app.update_status("Phone asked - New account...", "orange")
-                        await context.clear_cookies()
-                        await page.wait_for_timeout(500)
-                        create_url = "https://www.amazon.com/ap/register?openid.return_to=https%3A%2F%2Fdeveloper.amazon.com%2Fdashboard&openid.assoc_handle=mas_dev_portal&openid.mode=checkid_setup&openid.ns=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0"
-                        await page.goto(create_url, wait_until="domcontentloaded")
-                        await page.wait_for_timeout(3000)
+                        phone_retries += 1
+                        if phone_retries > 3:
+                            app.log(f"Phone tlab {phone_retries} mrat! SKIP had l account.")
+                            app.update_status("Phone asked too many times - SKIP", "red")
+                            app._last_result = "SKIP_VERIFICATION"
+                            return
+                        # Get phone from dev_info
+                        acct_phone = dev_info.get("phone", "")
+                        acct_phone_cc = dev_info.get("phone_cc", "")
+                        app.log(f"Amazon tlab phone! Filling: {acct_phone_cc} {acct_phone} (try {phone_retries}/3)")
+                        app.update_status("Phone asked - Filling...", "orange")
 
-                        # Check if we're already on registration form (name field visible)
-                        _already_on_register = await page.query_selector("#ap_customer_name")
-                        if not _already_on_register:
-                            # Not on register form — need to navigate there
-                            for _create_try in range(3):
-                                # Try clicking Create link (only <a> links, NOT submit buttons)
-                                create_clicked = False
-                                for create_sel in [
-                                    "a[id='createAccountSubmit']",
-                                    "#auth-create-account-link",
-                                    "a:has-text('Create your Amazon Developer account')",
-                                    "a:has-text('Create your Amazon account')",
-                                    "a:has-text('Create a new Amazon account')",
-                                    "a:has-text('Create account')",
-                                    "[data-action='sign-up']",
-                                ]:
-                                    try:
-                                        create_link = page.locator(create_sel).first
-                                        if await create_link.is_visible():
-                                            # Make sure it's a link, not the submit button
-                                            tag = await create_link.evaluate("el => el.tagName.toLowerCase()")
-                                            if tag == "a" or "link" in create_sel or "sign-up" in create_sel:
-                                                app.log(f"   Clicking '{create_sel}'...")
-                                                await create_link.click()
-                                                create_clicked = True
-                                                await page.wait_for_timeout(3000)
-                                                break
-                                    except Exception:
-                                        continue
-                                if create_clicked:
-                                    break
-                                # No create link — check for email-first sign-in
-                                email_sel_retry = None
-                                for sel in ["#ap_email", "input[type='email']", "input[placeholder*='email']", "input[placeholder*='mobile']"]:
-                                    try:
-                                        el = page.locator(sel).first
-                                        if await el.is_visible():
-                                            email_sel_retry = sel
-                                            break
-                                    except Exception:
-                                        continue
-                                name_field = await page.query_selector("#ap_customer_name")
-                                if name_field:
-                                    # Registration form appeared!
-                                    break
-                                if email_sel_retry:
-                                    app.log(f"   Email-first sign-in detected ({email_sel_retry}) — entering email...")
-                                    await pw_human_type(page, email_sel_retry, email)
-                                    await page.wait_for_timeout(1000)
-                                    for btn in ["#continue", "input[type='submit']", "button:has-text('Continue')", "button:has-text('Sign in')"]:
-                                        try:
-                                            el = page.locator(btn).first
-                                            if await el.is_visible():
-                                                await el.click()
-                                                break
-                                        except Exception:
-                                            continue
-                                    await page.wait_for_timeout(3000)
-                                    # After email → check for "cannot find account" and click Create
-                                    app.log("   Looking for 'Create' button after email...")
-                                    _found_create = False
-                                    for cs in [
-                                        "a:has-text('Create your Amazon Developer account')",
-                                        "button:has-text('Create your Amazon Developer account')",
-                                        "a[id='createAccountSubmit']",
-                                        "#auth-create-account-link",
-                                        "a:has-text('Create your Amazon account')",
-                                        "a:has-text('Create a new Amazon account')",
-                                        "a:has-text('Create account')",
-                                        "button:has-text('Create account')",
-                                    ]:
-                                        try:
-                                            cel = page.locator(cs).first
-                                            if await cel.is_visible():
-                                                # Don't click the yellow submit button on registration form
-                                                name_exists = await page.query_selector("#ap_customer_name")
-                                                if name_exists:
-                                                    break
-                                                await cel.click()
-                                                app.log(f"   Clicked: {cs}")
-                                                _found_create = True
-                                                await page.wait_for_timeout(3000)
-                                                break
-                                        except Exception:
-                                            continue
-                                    break
-                                else:
-                                    break
+                        # Try to select country code if there's a dropdown
+                        try:
+                            cc_dropdown = page.locator("select[name*='country'], select[id*='country'], select[name*='phone'], #country_code, .a-dropdown-container select").first
+                            if await cc_dropdown.is_visible(timeout=2000):
+                                # Try to select by value or text matching the country code
+                                cc_val = acct_phone_cc.replace("+", "")
+                                await cc_dropdown.select_option(value=cc_val)
+                                app.log(f"   Country code selected: {acct_phone_cc}")
+                        except Exception:
+                            pass
 
-                        # Fill registration form (name, email, password, re-enter password)
-                        app.log("Filling registration form...")
-                        await page.wait_for_timeout(1000)
-                        if await page.query_selector("#ap_customer_name"):
-                            await page.fill("#ap_customer_name", "")
-                            await pw_human_type(page, "#ap_customer_name", full_name)
-                        if await page.query_selector("#ap_email"):
-                            val = await page.input_value("#ap_email")
-                            if not val:
-                                await pw_human_type(page, "#ap_email", email)
-                        if await page.query_selector("#ap_password"):
-                            await page.fill("#ap_password", "")
-                            await pw_human_type(page, "#ap_password", out_pass)
-                        if await page.query_selector("#ap_password_check"):
-                            await page.fill("#ap_password_check", "")
-                            await pw_human_type(page, "#ap_password_check", out_pass)
-                        await page.wait_for_timeout(500)
-                        # Now click submit
-                        for submit_sel in ["#continue", "input[id='continue']", "input[type='submit']",
-                                           "button:has-text('Create your Amazon Developer account')",
-                                           "button:has-text('Create account')"]:
+                        # Fill phone number in any tel/phone input
+                        phone_filled = False
+                        for ph_sel in ["input[type='tel']", "input[name*='phone']", "input[id*='phone']", "input[name*='mobile']", "input[placeholder*='phone']", "input[placeholder*='mobile']"]:
                             try:
-                                el = page.locator(submit_sel).first
-                                if await el.is_visible():
-                                    await el.click()
-                                    app.log(f"   Submit: {submit_sel}")
+                                ph_el = page.locator(ph_sel).first
+                                if await ph_el.is_visible(timeout=2000):
+                                    await ph_el.fill("")
+                                    await pw_human_type(page, ph_sel, acct_phone)
+                                    phone_filled = True
+                                    app.log(f"   Phone filled: {acct_phone}")
                                     break
                             except Exception:
                                 continue
-                        await page.wait_for_timeout(3000)
+
+                        if phone_filled:
+                            await page.wait_for_timeout(500)
+                            # Click submit/continue/verify button
+                            for btn_sel in ["#a-autoid-0-announce", "#continue", "input[type='submit']",
+                                            "button:has-text('Send')", "button:has-text('Verify')",
+                                            "button:has-text('Continue')", "button:has-text('Submit')",
+                                            "input[value*='Send']", "input[value*='Verify']", "input[value*='Continue']",
+                                            "span.a-button-inner input"]:
+                                try:
+                                    btn = page.locator(btn_sel).first
+                                    if await btn.is_visible(timeout=1000):
+                                        await btn.click()
+                                        app.log(f"   Phone submit: {btn_sel}")
+                                        break
+                                except Exception:
+                                    continue
+                            await page.wait_for_timeout(3000)
+                        else:
+                            app.log("   No phone input found!")
                         continue
 
                 if "cvf" in page.url.lower():
@@ -1461,91 +1381,85 @@ async def run_2fa_only(app, email, out_pass):
         )
         page = await context.new_page()
 
-        # Go DIRECTLY to 2FA URL — Amazon will redirect to sign-in automatically
-        # (Fresh browser has no cookies, so Amazon will ask for credentials first)
-        app.log("2FA: Going directly to 2FA setup (Amazon will ask to sign in)...")
-        await page.goto(AMAZON_2FA_URL, wait_until="domcontentloaded", timeout=30000)
+        # Step 1: Sign in to Amazon using the regular sign-in page (NOT developer portal)
+        AMAZON_SIGNIN = "https://www.amazon.com/ap/signin?openid.pape.max_auth_age=0&openid.return_to=https%3A%2F%2Fwww.amazon.com%2F%3Fref_%3Dnav_custrec_signin&openid.identity=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select&openid.assoc_handle=usflex&openid.mode=checkid_setup&openid.claimed_id=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select&openid.ns=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0"
+        app.log("2FA: Going to Amazon sign-in page...")
+        await page.goto(AMAZON_SIGNIN, wait_until="domcontentloaded", timeout=30000)
+        await page.wait_for_timeout(3000)
+
+        # Enter email
+        app.log("2FA: Entering email...")
+        await page.wait_for_timeout(2000)
+        for sel in ["#ap_email", "input[name='email']", "input[type='email']",
+                    "input[placeholder*='email']", "input[placeholder*='mobile']"]:
+            try:
+                el = page.locator(sel).first
+                if await el.is_visible():
+                    await el.click()
+                    await page.wait_for_timeout(300)
+                    await el.fill("")
+                    await el.type(email, delay=80)
+                    app.log(f"2FA: Email OK")
+                    break
+            except Exception:
+                continue
+        await page.wait_for_timeout(1000)
+
+        # Click Continue
+        for btn in ["#continue", "input[type='submit']", "button:has-text('Continue')"]:
+            try:
+                el = page.locator(btn).first
+                if await el.is_visible():
+                    await el.click()
+                    break
+            except Exception:
+                continue
         await page.wait_for_timeout(4000)
 
-        # Amazon should redirect to sign-in — handle login
-        for _login_try in range(5):
-            cur_url = page.url.lower()
-            # Already on 2FA page? Done with sign-in
-            if "approval" in cur_url or "settings" in cur_url or "mfa" in cur_url:
-                app.log("2FA: Already on 2FA page!")
-                break
-
-            # On Create Account page? Click "Sign in" link
-            if await page.query_selector("#ap_customer_name"):
-                app.log("2FA: Create page detected — clicking Sign in...")
-                for sel in ["a:has-text('Sign in')", "a:has-text('Already have an account')",
-                            "a[href*='signin']"]:
-                    try:
-                        el = page.locator(sel).first
-                        if await el.is_visible():
-                            await el.click()
-                            await page.wait_for_timeout(3000)
-                            break
-                    except Exception:
-                        continue
-                continue
-
-            # Email field visible? Enter email
-            email_entered = False
-            for sel in ["#ap_email", "input[type='email']", "input[placeholder*='email']", "input[placeholder*='mobile']"]:
-                try:
-                    el = page.locator(sel).first
-                    if await el.is_visible():
-                        await el.fill("")
-                        await el.type(email, delay=80)
-                        app.log(f"2FA: Email entered in {sel}")
-                        email_entered = True
-                        break
-                except Exception:
-                    continue
-            if email_entered:
-                await page.wait_for_timeout(500)
-                for btn in ["#continue", "input[type='submit']", "button:has-text('Continue')"]:
-                    try:
-                        el = page.locator(btn).first
-                        if await el.is_visible():
-                            await el.click()
-                            break
-                    except Exception:
-                        continue
-                await page.wait_for_timeout(3000)
-                continue
-
-            # Password field visible? Enter password
-            pw_entered = False
-            for sel in ["#ap_password", "input[type='password']"]:
-                try:
-                    el = page.locator(sel).first
-                    if await el.is_visible():
-                        await el.fill("")
-                        await el.type(out_pass, delay=80)
-                        app.log("2FA: Password entered")
-                        pw_entered = True
-                        break
-                except Exception:
-                    continue
-            if pw_entered:
-                await page.wait_for_timeout(500)
-                for btn in ["#signInSubmit", "input[type='submit']", "button[type='submit']", "button:has-text('Sign in')"]:
-                    try:
-                        el = page.locator(btn).first
-                        if await el.is_visible():
-                            await el.click()
-                            break
-                    except Exception:
-                        continue
-                await page.wait_for_timeout(5000)
-                continue
-
-            # Nothing found — wait and retry
+        # Wait for password field and enter password
+        app.log("2FA: Waiting for password field...")
+        for _pw_try in range(5):
+            try:
+                pw_el = page.locator("#ap_password").first
+                if await pw_el.is_visible():
+                    await pw_el.click()
+                    await page.wait_for_timeout(300)
+                    await pw_el.fill("")
+                    await pw_el.type(out_pass, delay=80)
+                    app.log("2FA: Password OK")
+                    break
+            except Exception:
+                pass
+            try:
+                pw_el = page.locator("input[type='password']").first
+                if await pw_el.is_visible():
+                    await pw_el.click()
+                    await page.wait_for_timeout(300)
+                    await pw_el.fill("")
+                    await pw_el.type(out_pass, delay=80)
+                    app.log("2FA: Password OK (generic)")
+                    break
+            except Exception:
+                pass
+            app.log(f"2FA: Password field not found yet ({_pw_try+1}/5)")
             await page.wait_for_timeout(2000)
+        await page.wait_for_timeout(500)
 
-        # Now on 2FA setup page (or sign-in completed)
+        # Click Sign in
+        for btn in ["#signInSubmit", "input[type='submit']", "button[type='submit']", "button:has-text('Sign in')"]:
+            try:
+                el = page.locator(btn).first
+                if await el.is_visible():
+                    await el.click()
+                    app.log("2FA: Sign in clicked")
+                    break
+            except Exception:
+                continue
+        await page.wait_for_timeout(5000)
+        app.log(f"2FA: Login done. URL={page.url[:60]}")
+
+        # Step 2: Now signed in — go to 2FA setup page
+        app.log("2FA: Signed in — navigating to 2FA setup...")
         for _2fa_try in range(3):
             if getattr(app, '_stop_flag', False):
                 break
@@ -2077,7 +1991,7 @@ class App:
         elif filt.startswith("Retry"):
             filtered = [r for r in rows if r.get("status", "").strip().lower() in RETRY_STATUSES]
         elif filt.startswith("Need 2FA"):
-            filtered = [r for r in rows if r.get("status", "").strip().lower() == "ok"]
+            filtered = [r for r in rows if r.get("status", "").strip().lower() in ("ok", "2fa_fail")]
         elif filt == "All accounts":
             filtered = list(rows)
         elif filt == "By country...":
@@ -2623,10 +2537,10 @@ class App:
                     rows = list(reader)
 
             # Filter: only "ok" status (created but no 2FA)
-            ok_rows = [r for r in rows if r.get("status", "").strip().lower() == "ok"]
+            ok_rows = [r for r in rows if r.get("status", "").strip().lower() in ("ok", "2fa_fail")]
             if not ok_rows:
-                self.log("2FA BATCH: No accounts with 'ok' status found!")
-                messagebox.showinfo("2FA", "No accounts with 'ok' status to process.")
+                self.log("2FA BATCH: No accounts needing 2FA found!")
+                messagebox.showinfo("2FA", "No accounts with 'ok' or '2fa_fail' status to process.")
                 return
 
             self.batch_rows = ok_rows
