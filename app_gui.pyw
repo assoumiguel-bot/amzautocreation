@@ -164,8 +164,20 @@ async def run_playwright_flow(app, prenom, nom, email, out_pass, dev_info=None):
                         continue
                 await page.wait_for_timeout(random.randint(2500, 4000))
 
-                # Always try to click "Create your Amazon Developer account" after Continue
-                # (appears when account not found, or at bottom of sign-in page)
+                # CHECK "cannot find account" FIRST — before clicking Create
+                try:
+                    _post_continue_text = (await page.inner_text("body")).lower() if await page.query_selector("body") else ""
+                except Exception:
+                    _post_continue_text = ""
+                if ("cannot find" in _post_continue_text or "can\u2019t find" in _post_continue_text or
+                    "no account found" in _post_continue_text or
+                    ("problem" in _post_continue_text and "cannot find" in _post_continue_text)):
+                    app.log("'Cannot find account' after Continue → SKIP → next account.")
+                    app.update_status("Cannot find account - SKIP", "orange")
+                    app._last_result = "phone"
+                    return
+
+                # Try to click "Create your Amazon Developer account" after Continue
                 app.log("   Looking for 'Create' button...")
                 create_clicked = False
                 for create_sel in [
@@ -190,14 +202,9 @@ async def run_playwright_flow(app, prenom, nom, email, out_pass, dev_info=None):
                             break
                     except Exception:
                         continue
+
                 if not create_clicked:
-                    app.log("   Create button mal9ach — trying page text check...")
-                    try:
-                        page_text = await page.inner_text("body") if await page.query_selector("body") else ""
-                    except Exception:
-                        page_text = ""
-                    if "cannot find" in page_text.lower() or "no account" in page_text.lower():
-                        app.log("   'Cannot find account' detected but Create button not found!")
+                    app.log("   Create button mal9ach — continuing...")
 
             app.log("4. Filling form (keyboard b7al human)...")
             if await page.query_selector("#ap_customer_name"):
@@ -292,6 +299,33 @@ async def run_playwright_flow(app, prenom, nom, email, out_pass, dev_info=None):
                 on_otp_page = ("cvf" in page_url_lower or "/ap/mfa" in page_url_lower or
                                ("verify" in page_url_lower and "email" in page_url_lower))
 
+                # Phone verification → SKIP immediately (check every loop from loop 2+)
+                if loop >= 2:
+                    # Check URL first (fast)
+                    if "phone" in page_url_lower and "verify" in page_url_lower:
+                        app.log("Amazon tlab phone number! SKIP → next account.")
+                        app.update_status("Phone asked - SKIP", "orange")
+                        app._last_result = "phone"
+                        return
+                    # Check for phone input fields (tel type)
+                    try:
+                        phone_input = await page.query_selector("input[type='tel']")
+                        if phone_input:
+                            # Make sure it's not an OTP field
+                            ph_name = (await phone_input.get_attribute("name") or "").lower()
+                            ph_id = (await phone_input.get_attribute("id") or "").lower()
+                            if "code" not in ph_name and "otp" not in ph_name and "code" not in ph_id and "otp" not in ph_id:
+                                visible_text_ph = await page.inner_text("body") if await page.query_selector("body") else ""
+                                visible_lower_ph = visible_text_ph.lower()
+                                if ("phone" in visible_lower_ph or "mobile" in visible_lower_ph or
+                                    "numéro" in visible_lower_ph or "telefon" in visible_lower_ph):
+                                    app.log("Amazon tlab phone number! SKIP → next account.")
+                                    app.update_status("Phone asked - SKIP", "orange")
+                                    app._last_result = "phone"
+                                    return
+                    except Exception:
+                        pass
+
                 if not on_otp_page and loop >= 5:
                     visible_text = await page.inner_text("body") if await page.query_selector("body") else ""
                     visible_lower = visible_text.lower()
@@ -315,68 +349,17 @@ async def run_playwright_flow(app, prenom, nom, email, out_pass, dev_info=None):
                         app._last_result = "SKIP_VERIFICATION"
                         return
 
-                    # Phone verification → fill phone number and continue
+                    # Phone verification (text-based fallback) → SKIP
                     if ("verify your phone" in visible_lower or
                         "add mobile number" in visible_lower or
                         "add your mobile phone number" in visible_lower or
-                        ("phone" in page_url_lower and "verify" in page_url_lower)):
-                        phone_retries += 1
-                        if phone_retries > 3:
-                            app.log(f"Phone tlab {phone_retries} mrat! SKIP had l account.")
-                            app.update_status("Phone asked too many times - SKIP", "red")
-                            app._last_result = "SKIP_VERIFICATION"
-                            return
-                        # Get phone from dev_info
-                        acct_phone = dev_info.get("phone", "")
-                        acct_phone_cc = dev_info.get("phone_cc", "")
-                        app.log(f"Amazon tlab phone! Filling: {acct_phone_cc} {acct_phone} (try {phone_retries}/3)")
-                        app.update_status("Phone asked - Filling...", "orange")
-
-                        # Try to select country code if there's a dropdown
-                        try:
-                            cc_dropdown = page.locator("select[name*='country'], select[id*='country'], select[name*='phone'], #country_code, .a-dropdown-container select").first
-                            if await cc_dropdown.is_visible(timeout=2000):
-                                # Try to select by value or text matching the country code
-                                cc_val = acct_phone_cc.replace("+", "")
-                                await cc_dropdown.select_option(value=cc_val)
-                                app.log(f"   Country code selected: {acct_phone_cc}")
-                        except Exception:
-                            pass
-
-                        # Fill phone number in any tel/phone input
-                        phone_filled = False
-                        for ph_sel in ["input[type='tel']", "input[name*='phone']", "input[id*='phone']", "input[name*='mobile']", "input[placeholder*='phone']", "input[placeholder*='mobile']"]:
-                            try:
-                                ph_el = page.locator(ph_sel).first
-                                if await ph_el.is_visible(timeout=2000):
-                                    await ph_el.fill("")
-                                    await pw_human_type(page, ph_sel, acct_phone)
-                                    phone_filled = True
-                                    app.log(f"   Phone filled: {acct_phone}")
-                                    break
-                            except Exception:
-                                continue
-
-                        if phone_filled:
-                            await page.wait_for_timeout(500)
-                            # Click submit/continue/verify button
-                            for btn_sel in ["#a-autoid-0-announce", "#continue", "input[type='submit']",
-                                            "button:has-text('Send')", "button:has-text('Verify')",
-                                            "button:has-text('Continue')", "button:has-text('Submit')",
-                                            "input[value*='Send']", "input[value*='Verify']", "input[value*='Continue']",
-                                            "span.a-button-inner input"]:
-                                try:
-                                    btn = page.locator(btn_sel).first
-                                    if await btn.is_visible(timeout=1000):
-                                        await btn.click()
-                                        app.log(f"   Phone submit: {btn_sel}")
-                                        break
-                                except Exception:
-                                    continue
-                            await page.wait_for_timeout(3000)
-                        else:
-                            app.log("   No phone input found!")
-                        continue
+                        "mobile phone number" in visible_lower or
+                        "enter your mobile" in visible_lower or
+                        "phone number" in visible_lower and "verify" in visible_lower):
+                        app.log("Amazon tlab phone number! SKIP → next account.")
+                        app.update_status("Phone asked - SKIP", "orange")
+                        app._last_result = "phone"
+                        return
 
                 if "cvf" in page.url.lower():
                     # Check if it's a CAPTCHA page — only real captcha elements
@@ -404,8 +387,22 @@ async def run_playwright_flow(app, prenom, nom, email, out_pass, dev_info=None):
                         app._last_result = "SKIP_CAPTCHA"
                         return
 
-                # === STUCK DETECTION: analyze page and take action ===
+                # === "CANNOT FIND ACCOUNT" on sign-in → SKIP immediately ===
                 cur_url = page.url
+                if "signin" in cur_url.lower() or "sign-in" in cur_url.lower() or "ap/signin" in cur_url.lower():
+                    try:
+                        _signin_text = (await page.inner_text("body")).lower() if await page.query_selector("body") else ""
+                        if ("cannot find" in _signin_text or "can\u2019t find" in _signin_text or
+                            "no account found" in _signin_text or
+                            ("problem" in _signin_text and "email" in _signin_text and "cannot" in _signin_text)):
+                            app.log("'Cannot find account' on sign-in → SKIP → next account.")
+                            app.update_status("Cannot find account - SKIP", "orange")
+                            app._last_result = "phone"
+                            return
+                    except Exception:
+                        pass
+
+                # === STUCK DETECTION: analyze page and take action ===
                 if cur_url == _stuck_url:
                     _stuck_count += 1
                 else:
@@ -867,6 +864,19 @@ async def run_playwright_flow(app, prenom, nom, email, out_pass, dev_info=None):
                             except Exception:
                                 continue
                         await page.wait_for_timeout(3000)
+
+                        # CHECK "cannot find account" before trying password
+                        try:
+                            _login_text = (await page.inner_text("body")).lower() if await page.query_selector("body") else ""
+                        except Exception:
+                            _login_text = ""
+                        if ("cannot find" in _login_text or "can\u2019t find" in _login_text or
+                            "no account found" in _login_text):
+                            app.log("'Cannot find account' on dev portal login → SKIP.")
+                            app.update_status("Cannot find account - SKIP", "orange")
+                            app._last_result = "phone"
+                            return
+
                         for sel in ["#ap_password", "input[type='password']"]:
                             try:
                                 el = page.locator(sel).first
@@ -887,6 +897,24 @@ async def run_playwright_flow(app, prenom, nom, email, out_pass, dev_info=None):
                                 continue
                         await page.wait_for_timeout(6000)
                         app.log(f"   Login done. URL: {page.url}")
+
+                        # CHECK AGAIN after login attempt
+                        try:
+                            _login_text2 = (await page.inner_text("body")).lower() if await page.query_selector("body") else ""
+                        except Exception:
+                            _login_text2 = ""
+                        if ("cannot find" in _login_text2 or "can\u2019t find" in _login_text2 or
+                            "no account found" in _login_text2):
+                            app.log("'Cannot find account' after login → SKIP.")
+                            app.update_status("Cannot find account - SKIP", "orange")
+                            app._last_result = "phone"
+                            return
+                        if "signin" in page.url.lower() or "sign-in" in page.url.lower():
+                            # Still on sign-in page = login failed
+                            app.log("Still on sign-in after login attempt → SKIP.")
+                            app.update_status("Login failed - SKIP", "orange")
+                            app._last_result = "phone"
+                            return
 
                     try:
                         await page.screenshot(path=os.path.join(BASE_DIR, "dev_console.png"))
@@ -2272,42 +2300,41 @@ class App:
         return self.connect_vpn_proton_country(country)
 
     def connect_vpn_proton_country(self, country):
-        """Connect VPN to specific country via WireGuard"""
+        """Connect VPN to specific country via WireGuard — uses ALL configs for max IP diversity"""
         self.log(f"VPN → {country} (WireGuard)...")
 
         # Track used configs in this batch to never reuse same IP
         if not hasattr(self, '_used_vpn_configs'):
             self._used_vpn_configs = set()
 
-        # Find config files for this country
-        configs = self._get_wg_configs(country)
-        # Remove already-used configs
-        if configs:
-            fresh = [c for c in configs if os.path.basename(c) not in self._used_vpn_configs]
-            if fresh:
-                configs = fresh
+        # Collect ALL .conf files (not just matching country) for maximum IP diversity
+        all_confs = []
+        country_confs = []
+        if os.path.isdir(VPN_CONFIGS_DIR):
+            code = COUNTRY_TO_CODE.get(country, country.upper()[:2])
+            for f in os.listdir(VPN_CONFIGS_DIR):
+                if not f.endswith(".conf"):
+                    continue
+                full = os.path.join(VPN_CONFIGS_DIR, f)
+                if f not in self._used_vpn_configs:
+                    all_confs.append(full)
+                    if f"wg-{code}-" in f:
+                        country_confs.append(full)
 
-        if not configs:
-            # Country mal9ach or all used → pick from ANY other country
-            self.log(f"Config mal9ach l {country} — kankhtar country khra...")
-            last_conf = getattr(self, '_last_vpn_conf', None)
+        # Prefer matching country, but use ANY if not available
+        if country_confs:
+            configs = country_confs
+        elif all_confs:
+            configs = all_confs
+        else:
+            # All 55 configs used — reset and start over
+            self._used_vpn_configs.clear()
+            self.log("All VPN configs used (55) — resetting...")
             all_confs = []
             if os.path.isdir(VPN_CONFIGS_DIR):
                 for f in os.listdir(VPN_CONFIGS_DIR):
-                    if f.endswith(".conf") and f not in self._used_vpn_configs:
+                    if f.endswith(".conf"):
                         all_confs.append(os.path.join(VPN_CONFIGS_DIR, f))
-            # Don't reuse same config as last time
-            if last_conf and len(all_confs) > 1:
-                all_confs = [c for c in all_confs if os.path.basename(c) != last_conf]
-            if not all_confs:
-                # All configs used — reset tracker and pick any
-                self._used_vpn_configs.clear()
-                self.log("All VPN configs used — resetting...")
-                all_confs = []
-                if os.path.isdir(VPN_CONFIGS_DIR):
-                    for f in os.listdir(VPN_CONFIGS_DIR):
-                        if f.endswith(".conf"):
-                            all_confs.append(os.path.join(VPN_CONFIGS_DIR, f))
             if not all_confs:
                 self.log("Hta config WireGuard mal9ach! Dir configs f vpn_configs/")
                 return False
@@ -2764,6 +2791,11 @@ class App:
                     self.log(f"VERIFICATION: {email}")
                     self._update_table_status(idx, "skip")
                     self._update_sheet_status(email, "verification")
+                elif self._last_result == "phone":
+                    results["skip"].append(email)
+                    self.log(f"PHONE ASKED → SKIP: {email}")
+                    self._update_table_status(idx, "phone")
+                    self._update_sheet_status(email, "phone")
                 else:
                     results["ok"].append(email)
                     totp_secret = getattr(self, '_2fa_totp_secret', None)
@@ -2794,6 +2826,11 @@ class App:
                     self.log(f"VERIFICATION: {email}")
                     self._update_table_status(idx, "skip")
                     self._update_sheet_status(email, "verification")
+                elif self._last_result == "phone":
+                    results["skip"].append(email)
+                    self.log(f"PHONE ASKED → SKIP: {email}")
+                    self._update_table_status(idx, "phone")
+                    self._update_sheet_status(email, "phone")
                 elif self._skip_flag:
                     results["skip"].append(email)
                     self.log(f"SKIPPED (NEXT): {email}")
