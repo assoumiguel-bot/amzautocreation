@@ -1928,35 +1928,77 @@ class App:
         threading.Thread(target=_do_update, daemon=True).start()
 
     def _update_sheet_totp(self, email, totp_secret):
-        """Save TOTP secret to Google Sheets in a 'totp_secret' column"""
+        """Save TOTP secret to Google Sheets in a 'totp_secret' column (with retry)"""
         def _do_update():
+            for attempt in range(3):
+                try:
+                    sheet_id = self._get_sheet_id()
+                    if not sheet_id:
+                        return
+
+                    creds_path = os.path.join(BASE_DIR, "credentials.json")
+                    if not os.path.exists(creds_path):
+                        return
+
+                    import gspread
+                    from google.oauth2.service_account import Credentials
+
+                    scopes = ["https://www.googleapis.com/auth/spreadsheets"]
+                    creds = Credentials.from_service_account_file(creds_path, scopes=scopes)
+                    gc = gspread.authorize(creds)
+                    sh = gc.open_by_key(sheet_id)
+                    ws = sh.sheet1
+
+                    all_values = ws.get_all_values()
+                    header = [h.lower().strip() for h in all_values[0]]
+
+                    if "totp_secret" in header:
+                        totp_col = header.index("totp_secret") + 1
+                    else:
+                        totp_col = len(header) + 1
+                        ws.update_cell(1, totp_col, "totp_secret")
+
+                    email_col = header.index("email") + 1 if "email" in header else 1
+                    for row_idx, row_vals in enumerate(all_values[1:], start=2):
+                        cell_email = row_vals[email_col - 1].strip() if email_col - 1 < len(row_vals) else ""
+                        if cell_email.lower() == email.lower():
+                            ws.update_cell(row_idx, totp_col, totp_secret)
+                            self.log(f"  Sheet TOTP saved: {email}")
+                            flog(f"Sheet TOTP saved: row {row_idx}, {email}")
+                            return
+                    flog(f"TOTP: Email {email} not found in sheet")
+                    return
+                except Exception as e:
+                    flog(f"Sheet TOTP error (attempt {attempt+1}/3): {e}")
+                    if attempt < 2:
+                        time.sleep(3)
+            flog(f"Sheet TOTP FAILED after 3 attempts: {email}")
+        threading.Thread(target=_do_update, daemon=True).start()
+
+    def _update_sheet_totp_sync(self, email, totp_secret):
+        """Save TOTP secret synchronously (blocks until done) — used in batch to avoid VPN disconnect"""
+        for attempt in range(3):
             try:
                 sheet_id = self._get_sheet_id()
                 if not sheet_id:
                     return
-
                 creds_path = os.path.join(BASE_DIR, "credentials.json")
                 if not os.path.exists(creds_path):
                     return
-
                 import gspread
                 from google.oauth2.service_account import Credentials
-
                 scopes = ["https://www.googleapis.com/auth/spreadsheets"]
                 creds = Credentials.from_service_account_file(creds_path, scopes=scopes)
                 gc = gspread.authorize(creds)
                 sh = gc.open_by_key(sheet_id)
                 ws = sh.sheet1
-
                 all_values = ws.get_all_values()
                 header = [h.lower().strip() for h in all_values[0]]
-
                 if "totp_secret" in header:
                     totp_col = header.index("totp_secret") + 1
                 else:
                     totp_col = len(header) + 1
                     ws.update_cell(1, totp_col, "totp_secret")
-
                 email_col = header.index("email") + 1 if "email" in header else 1
                 for row_idx, row_vals in enumerate(all_values[1:], start=2):
                     cell_email = row_vals[email_col - 1].strip() if email_col - 1 < len(row_vals) else ""
@@ -1966,9 +2008,12 @@ class App:
                         flog(f"Sheet TOTP saved: row {row_idx}, {email}")
                         return
                 flog(f"TOTP: Email {email} not found in sheet")
+                return
             except Exception as e:
-                flog(f"Sheet TOTP error: {e}")
-        threading.Thread(target=_do_update, daemon=True).start()
+                flog(f"Sheet TOTP error (attempt {attempt+1}/3): {e}")
+                if attempt < 2:
+                    time.sleep(3)
+        flog(f"Sheet TOTP FAILED after 3 attempts: {email}")
 
     # --- Table methods ---
     def _populate_table(self):
@@ -2803,7 +2848,8 @@ class App:
                         self.log(f"OK + 2FA: {email} | TOTP: {totp_secret[:4]}...{totp_secret[-4:]}")
                         self._update_table_status(idx, "ok+2fa")
                         self._update_sheet_status(email, "ok+2fa")
-                        self._update_sheet_totp(email, totp_secret)
+                        # Save TOTP synchronously (not background) to avoid VPN disconnect cutting connection
+                        self._update_sheet_totp_sync(email, totp_secret)
                     else:
                         self.log(f"OK (no 2FA): {email}")
                         self._update_table_status(idx, "ok")
@@ -2885,6 +2931,8 @@ class App:
         self.update_status(f"Done! OK:{len(results['ok'])} SKIP:{len(results['skip'])} FAIL:{len(results['fail'])}", "green")
         self.root.after(0, lambda: self.batch_progress_var.set(f"Done: OK:{len(results['ok'])} SKIP:{len(results['skip'])} FAIL:{len(results['fail'])}"))
         self._batch_mode = False
+        self._wg_disconnect()
+        self.log("VPN disconnected (batch finished).")
         self.root.after(0, lambda: self.batch_btn.configure(state="normal"))
         self.root.after(0, lambda: self.stop_btn.configure(state="disabled"))
         self.root.after(0, lambda: self.next_btn.configure(state="disabled"))
@@ -2893,6 +2941,7 @@ class App:
         flog(f"=== BATCH THREAD CRASHED: {batch_err} ===")
         flog(traceback.format_exc())
         self._batch_mode = False
+        self._wg_disconnect()
         self.root.after(0, lambda: self.batch_btn.configure(state="normal"))
         self.root.after(0, lambda: self.stop_btn.configure(state="disabled"))
         self.root.after(0, lambda: self.next_btn.configure(state="disabled"))
@@ -2927,4 +2976,13 @@ class App:
 if __name__ == "__main__":
     root = tk.Tk()
     app = App(root)
+
+    def _on_close():
+        try:
+            app._wg_disconnect()
+        except Exception:
+            pass
+        root.destroy()
+
+    root.protocol("WM_DELETE_WINDOW", _on_close)
     root.mainloop()

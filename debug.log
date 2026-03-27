@@ -7617,3 +7617,767 @@ playwright._impl._errors.Error: Page.query_selector: Execution context was destr
 [16:10:11] === OUTLOOK FLOW START ===
 [16:10:11] Opening new page for Outlook...
 [16:10:59] OTP paste check: otp=117235, otp_found=True, otp_sel=#cvf-input-code
+[16:12:23] === FINALLY BLOCK ===
+[16:12:23] === FINALLY DONE (batch) ===
+[16:12:23] === asyncio.run FINISHED for ScottSutton5963@outlook.com ===
+[16:12:23] Sheet update: email=ScottSutton5963@outlook.com, status=ok+2fa, sheet_id=1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[16:12:23] === ACCOUNT DONE: ScottSutton5963@outlook.com | moving to next... ===
+[16:12:23] === Results: skip_flag=False, stop_flag=False, last_result=None ===
+[16:12:23] Sheet ID: 1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[16:12:23] === PAUSE 5s ===
+[16:12:26] Sheet updated: row 90, ScottSutton5963@outlook.com → ok+2fa
+[16:12:26] Sheet TOTP saved: row 90, ScottSutton5963@outlook.com
+[16:12:28] === PAUSE DONE ===
+[16:12:28] WG disconnect: wg-BE-34
+[16:12:31] WG connect: D:\test\OUTLOOK SIGNE IN\vpn_configs\wg-CH-1015.conf tunnel=wg-CH-1015
+[16:12:31] WG install rc=0
+[16:12:44] === LAUNCHING asyncio.run for LuisAdams8902@outlook.com ===
+[16:13:19] === OTP LOOP START ===
+[16:13:19] Loop 0: OTP FOUND via #cvf-input-code
+[16:13:19] OTP loop done. otp_found=True, otp_sel=#cvf-input-code
+[16:13:19] === OUTLOOK FLOW START ===
+[16:13:19] Opening new page for Outlook...
+[16:14:08] OTP paste check: otp=071161, otp_found=True, otp_sel=#cvf-input-code
+[16:14:43] === FINALLY BLOCK ===
+[16:14:43] === FINALLY DONE (batch) ===
+[16:14:43] === asyncio.run FINISHED for LuisAdams8902@outlook.com ===
+[16:14:43] Sheet update: email=LuisAdams8902@outlook.com, status=phone, sheet_id=1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[16:14:43] === ACCOUNT DONE: LuisAdams8902@outlook.com | moving to next... ===
+[16:14:43] === Results: skip_flag=False, stop_flag=False, last_result=phone ===
+[16:14:43] Sheet ID: 1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[16:14:43] === PAUSE 5s ===
+[16:14:46] Sheet updated: row 91, LuisAdams8902@outlook.com → phone
+[16:14:48] === PAUSE DONE ===
+[16:14:49] WG disconnect: wg-CH-1015
+[16:14:51] WG connect: D:\test\OUTLOOK SIGNE IN\vpn_configs\wg-FR-615.conf tunnel=wg-FR-615
+[16:14:51] WG install rc=0
+[16:15:05] === LAUNCHING asyncio.run for SuzanneHicks7922@outlook.com ===
+[16:15:40] === OTP LOOP START ===
+[16:15:40] Loop 0: OTP FOUND via #cvf-input-code
+[16:15:40] OTP loop done. otp_found=True, otp_sel=#cvf-input-code
+[16:15:40] === OUTLOOK FLOW START ===
+[16:15:40] Opening new page for Outlook...
+[16:16:43] OTP paste check: otp=529966, otp_found=True, otp_sel=#cvf-input-code
+[16:18:06] === FINALLY BLOCK ===
+[16:18:07] === FINALLY DONE (batch) ===
+[16:18:07] === asyncio.run FINISHED for SuzanneHicks7922@outlook.com ===
+[16:18:07] Sheet update: email=SuzanneHicks7922@outlook.com, status=ok+2fa, sheet_id=1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[16:18:07] === ACCOUNT DONE: SuzanneHicks7922@outlook.com | moving to next... ===
+[16:18:08] Sheet ID: 1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+lt=None ===
+[16:18:08] === PAUSE 5s ===
+[16:18:10] Sheet TOTP saved: row 92, SuzanneHicks7922@outlook.com
+[16:18:11] Sheet updated: row 92, SuzanneHicks7922@outlook.com → ok+2fa
+[16:18:13] === PAUSE DONE ===
+[16:18:13] WG disconnect: wg-FR-615
+[16:18:15] WG connect: D:\test\OUTLOOK SIGNE IN\vpn_configs\wg-DE-412.conf tunnel=wg-DE-412
+[16:18:15] WG install rc=0
+[16:18:29] === LAUNCHING asyncio.run for ThomasParker5594@outlook.com ===
+[16:18:59] === OTP LOOP START ===
+[16:18:59] Loop 0: OTP FOUND via #cvf-input-code
+[16:18:59] OTP loop done. otp_found=True, otp_sel=#cvf-input-code
+[16:18:59] === OUTLOOK FLOW START ===
+[16:18:59] Opening new page for Outlook...
+[16:19:47] OTP paste check: otp=548814, otp_found=True, otp_sel=#cvf-input-code
+[16:20:24] === FINALLY BLOCK ===
+[16:20:24] === FINALLY DONE (batch) ===
+[16:20:24] === asyncio.run FINISHED for ThomasParker5594@outlook.com ===
+[16:20:24] Sheet update: email=ThomasParker5594@outlook.com, status=phone, sheet_id=1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[16:20:24] === ACCOUNT DONE: ThomasParker5594@outlook.com | moving to next... ===
+[16:20:24] === Results: skip_flag=False, stop_flag=False, last_result=phone ===
+[16:20:24] Sheet ID: 1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[16:20:24] === PAUSE 5s ===
+[16:20:28] Sheet updated: row 93, ThomasParker5594@outlook.com → phone
+[16:20:29] === PAUSE DONE ===
+[16:20:30] WG disconnect: wg-DE-412
+[16:20:32] WG connect: D:\test\OUTLOOK SIGNE IN\vpn_configs\wg-BE-61.conf tunnel=wg-BE-61
+[16:20:32] WG install rc=0
+[16:21:54] === LAUNCHING asyncio.run for MrsMichelle2374@outlook.com ===
+[16:22:29] === OTP LOOP START ===
+[16:22:30] Loop 0: OTP FOUND via #cvf-input-code
+[16:22:30] OTP loop done. otp_found=True, otp_sel=#cvf-input-code
+[16:22:30] === OUTLOOK FLOW START ===
+[16:22:30] Opening new page for Outlook...
+[16:23:48] OTP paste check: otp=054080, otp_found=True, otp_sel=#cvf-input-code
+[16:25:40] === FINALLY BLOCK ===
+[16:25:40] === FINALLY DONE (batch) ===
+[16:25:40] === asyncio.run FINISHED for MrsMichelle2374@outlook.com ===
+[16:25:40] Sheet update: email=MrsMichelle2374@outlook.com, status=ok+2fa, sheet_id=1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[16:25:40] === ACCOUNT DONE: MrsMichelle2374@outlook.com | moving to next... ===
+[16:25:40] === Results: skip_flag=False, stop_flag=False, last_result=None ===
+[16:25:40] Sheet ID: 1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[16:25:40] === PAUSE 5s ===
+[16:25:43] Sheet updated: row 94, MrsMichelle2374@outlook.com → ok+2fa
+[16:25:44] Sheet TOTP saved: row 94, MrsMichelle2374@outlook.com
+[16:25:45] === PAUSE DONE ===
+[16:25:46] WG disconnect: wg-BE-61
+[16:25:46] WG cleanup leftover: wg-BE-61
+[16:25:48] WG connect: D:\test\OUTLOOK SIGNE IN\vpn_configs\wg-AT-212.conf tunnel=wg-AT-212
+[16:25:48] WG install rc=0
+[16:26:02] === LAUNCHING asyncio.run for ChristinaKnight5064@outlook.com ===
+[16:26:41] === OTP LOOP START ===
+[16:26:41] Loop 0: OTP FOUND via #cvf-input-code
+[16:26:41] OTP loop done. otp_found=True, otp_sel=#cvf-input-code
+[16:26:41] === OUTLOOK FLOW START ===
+[16:26:41] Opening new page for Outlook...
+[16:27:30] OTP paste check: otp=907492, otp_found=True, otp_sel=#cvf-input-code
+[16:28:06] === FINALLY BLOCK ===
+[16:28:07] === FINALLY DONE (batch) ===
+[16:28:07] === asyncio.run FINISHED for ChristinaKnight5064@outlook.com ===
+[16:28:07] Sheet update: email=ChristinaKnight5064@outlook.com, status=phone, sheet_id=1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[16:28:07] === ACCOUNT DONE: ChristinaKnight5064@outlook.com | moving to next... ===
+[16:28:07] === Results: skip_flag=False, stop_flag=False, last_result=phone ===
+[16:28:07] Sheet ID: 1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[16:28:07] === PAUSE 5s ===
+[16:28:11] Sheet updated: row 95, ChristinaKnight5064@outlook.com → phone
+[16:28:12] === PAUSE DONE ===
+[16:28:12] WG disconnect: wg-AT-212
+[16:28:15] WG connect: D:\test\OUTLOOK SIGNE IN\vpn_configs\wg-NL-635.conf tunnel=wg-NL-635
+[16:28:15] WG install rc=0
+[16:28:28] === LAUNCHING asyncio.run for VanessaGibson5867@outlook.com ===
+[16:29:04] === OTP LOOP START ===
+[16:29:04] Loop 0: OTP FOUND via #cvf-input-code
+[16:29:04] OTP loop done. otp_found=True, otp_sel=#cvf-input-code
+[16:29:04] === OUTLOOK FLOW START ===
+[16:29:04] Opening new page for Outlook...
+[16:29:53] OTP paste check: otp=589394, otp_found=True, otp_sel=#cvf-input-code
+[16:30:28] === FINALLY BLOCK ===
+[16:30:29] === FINALLY DONE (batch) ===
+[16:30:29] === asyncio.run FINISHED for VanessaGibson5867@outlook.com ===
+[16:30:29] Sheet update: email=VanessaGibson5867@outlook.com, status=phone, sheet_id=1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[16:30:29] === ACCOUNT DONE: VanessaGibson5867@outlook.com | moving to next... ===
+[16:30:29] === Results: skip_flag=False, stop_flag=False, last_result=phone ===
+[16:30:29] Sheet ID: 1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[16:30:29] === PAUSE 5s ===
+[16:30:32] Sheet updated: row 96, VanessaGibson5867@outlook.com → phone
+[16:30:34] === PAUSE DONE ===
+[16:30:34] WG disconnect: wg-NL-635
+[16:30:36] WG connect: D:\test\OUTLOOK SIGNE IN\vpn_configs\wg-CH-910.conf tunnel=wg-CH-910
+[16:30:36] WG install rc=0
+[16:30:50] === LAUNCHING asyncio.run for WendyHernandez9138@outlook.com ===
+[16:31:23] === OTP LOOP START ===
+[16:31:23] Loop 0: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=ccdf2819-a126-4a90-b05e-ebfda8d15f8a
+[16:31:24] Loop 1: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=ccdf2819-a126-4a90-b05e-ebfda8d15f8a
+[16:31:25] Loop 2: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=ccdf2819-a126-4a90-b05e-ebfda8d15f8a
+[16:31:26] Loop 3: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=ccdf2819-a126-4a90-b05e-ebfda8d15f8a
+[16:31:27] Loop 4: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=ccdf2819-a126-4a90-b05e-ebfda8d15f8a
+[16:31:28] Loop 5: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=ccdf2819-a126-4a90-b05e-ebfda8d15f8a
+[16:31:32] Loop 6: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=ccdf2819-a126-4a90-b05e-ebfda8d15f8a
+[16:31:33] Loop 7: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=ccdf2819-a126-4a90-b05e-ebfda8d15f8a
+[16:31:34] Loop 8: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=ccdf2819-a126-4a90-b05e-ebfda8d15f8a
+[16:31:34] === FINALLY BLOCK ===
+[16:31:34] === FINALLY DONE (batch) ===
+[16:31:34] === asyncio.run FINISHED for WendyHernandez9138@outlook.com ===
+[16:31:34] Sheet update: email=WendyHernandez9138@outlook.com, status=captcha, sheet_id=1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[16:31:34] === ACCOUNT DONE: WendyHernandez9138@outlook.com | moving to next... ===
+[16:31:34] === Results: skip_flag=False, stop_flag=False, last_result=SKIP_CAPTCHA ===
+[16:31:34] Sheet ID: 1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[16:31:34] === PAUSE 5s ===
+[16:31:37] Sheet updated: row 97, WendyHernandez9138@outlook.com → captcha
+[16:31:39] === PAUSE DONE ===
+[16:31:40] WG disconnect: wg-CH-910
+[16:31:42] WG connect: D:\test\OUTLOOK SIGNE IN\vpn_configs\wg-CH-741.conf tunnel=wg-CH-741
+[16:31:42] WG install rc=0
+[16:31:56] === LAUNCHING asyncio.run for NatashaSullivan4484@outlook.com ===
+[16:32:32] === OTP LOOP START ===
+[16:32:32] Loop 0: OTP FOUND via #cvf-input-code
+[16:32:32] OTP loop done. otp_found=True, otp_sel=#cvf-input-code
+[16:32:32] === OUTLOOK FLOW START ===
+[16:32:32] Opening new page for Outlook...
+[16:33:47] OTP paste check: otp=707958, otp_found=True, otp_sel=#cvf-input-code
+[16:34:26] === FINALLY BLOCK ===
+[16:34:26] === FINALLY DONE (batch) ===
+[16:34:26] === asyncio.run FINISHED for NatashaSullivan4484@outlook.com ===
+[16:34:26] Sheet update: email=NatashaSullivan4484@outlook.com, status=phone, sheet_id=1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[16:34:26] === ACCOUNT DONE: NatashaSullivan4484@outlook.com | moving to next... ===
+[16:34:26] === Results: skip_flag=False, stop_flag=False, last_result=phone ===
+[16:34:26] Sheet ID: 1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[16:34:26] === PAUSE 5s ===
+[16:34:29] Sheet updated: row 98, NatashaSullivan4484@outlook.com → phone
+[16:34:31] === PAUSE DONE ===
+[16:34:33] WG disconnect: wg-CH-741
+[16:34:35] WG connect: D:\test\OUTLOOK SIGNE IN\vpn_configs\wg-AU-206.conf tunnel=wg-AU-206
+[16:34:35] WG install rc=0
+[16:34:50] === LAUNCHING asyncio.run for MarioPorter1279@outlook.com ===
+[16:35:38] === OTP LOOP START ===
+[16:35:38] Loop 0: OTP FOUND via #cvf-input-code
+[16:35:38] OTP loop done. otp_found=True, otp_sel=#cvf-input-code
+[16:35:38] === OUTLOOK FLOW START ===
+[16:35:38] Opening new page for Outlook...
+[16:38:19] OTP paste check: otp=961831, otp_found=True, otp_sel=#cvf-input-code
+[16:39:51] === FINALLY BLOCK ===
+[16:39:52] === FINALLY DONE (batch) ===
+[16:39:52] === asyncio.run FINISHED for MarioPorter1279@outlook.com ===
+[16:39:52] Sheet update: email=MarioPorter1279@outlook.com, status=ok+2fa, sheet_id=1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[16:39:52] === ACCOUNT DONE: MarioPorter1279@outlook.com | moving to next... ===
+[16:39:52] === Results: skip_flag=False, stop_flag=False, last_result=None ===
+[16:39:52] Sheet ID: 1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[16:39:52] === PAUSE 5s ===
+[16:39:57] === PAUSE DONE ===
+[16:39:59] WG disconnect: wg-AU-206
+[16:39:59] Sheet update error: ('Connection aborted.', ConnectionAbortedError(10053, 'An established connection was aborted by the software in your host machine', None, 10053, None))
+[16:39:59] Sheet TOTP error: ('Connection aborted.', ConnectionAbortedError(10053, 'An established connection was aborted by the software in your host machine', None, 10053, None))
+[16:40:01] WG connect: D:\test\OUTLOOK SIGNE IN\vpn_configs\wg-DE-347.conf tunnel=wg-DE-347
+[16:40:01] WG install rc=0
+[16:40:14] === LAUNCHING asyncio.run for DanielNash3033@outlook.com ===
+[16:40:46] === OTP LOOP START ===
+[16:40:46] Loop 0: OTP FOUND via #cvf-input-code
+[16:40:46] OTP loop done. otp_found=True, otp_sel=#cvf-input-code
+[16:40:46] === OUTLOOK FLOW START ===
+[16:40:46] Opening new page for Outlook...
+[16:42:14] OTP paste check: otp=152224, otp_found=True, otp_sel=#cvf-input-code
+[16:44:38] === FINALLY BLOCK ===
+[16:44:39] === FINALLY DONE (batch) ===
+[16:44:39] === asyncio.run FINISHED for DanielNash3033@outlook.com ===
+[16:44:39] Sheet update: email=DanielNash3033@outlook.com, status=ok+2fa, sheet_id=1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[16:44:39] === ACCOUNT DONE: DanielNash3033@outlook.com | moving to next... ===
+[16:44:39] === Results: skip_flag=False, stop_flag=False, last_result=None ===
+[16:44:39] Sheet ID: 1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[16:44:39] === PAUSE 5s ===
+[16:44:42] Sheet TOTP saved: row 100, DanielNash3033@outlook.com
+[16:44:42] Sheet updated: row 100, DanielNash3033@outlook.com → ok+2fa
+[16:44:44] === PAUSE DONE ===
+[16:44:45] WG disconnect: wg-DE-347
+[16:44:47] WG connect: D:\test\OUTLOOK SIGNE IN\vpn_configs\wg-HR-52.conf tunnel=wg-HR-52
+[16:44:47] WG install rc=0
+[16:45:01] === LAUNCHING asyncio.run for JenniferCherry7121@outlook.com ===
+[16:45:33] === OTP LOOP START ===
+[16:45:33] Loop 0: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=d1ae4e2f-a067-4706-aa84-73a7ab801ab0
+[16:45:34] Loop 1: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=d1ae4e2f-a067-4706-aa84-73a7ab801ab0
+[16:45:36] Loop 2: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=d1ae4e2f-a067-4706-aa84-73a7ab801ab0
+[16:45:37] Loop 3: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=d1ae4e2f-a067-4706-aa84-73a7ab801ab0
+[16:45:38] Loop 4: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=d1ae4e2f-a067-4706-aa84-73a7ab801ab0
+[16:45:39] Loop 5: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=d1ae4e2f-a067-4706-aa84-73a7ab801ab0
+[16:45:43] Loop 6: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=d1ae4e2f-a067-4706-aa84-73a7ab801ab0
+[16:45:44] Loop 7: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=d1ae4e2f-a067-4706-aa84-73a7ab801ab0
+[16:45:45] Loop 8: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=d1ae4e2f-a067-4706-aa84-73a7ab801ab0
+[16:45:45] === FINALLY BLOCK ===
+[16:45:45] === FINALLY DONE (batch) ===
+[16:45:45] === asyncio.run FINISHED for JenniferCherry7121@outlook.com ===
+[16:45:45] Sheet update: email=JenniferCherry7121@outlook.com, status=captcha, sheet_id=1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[16:45:45] === ACCOUNT DONE: JenniferCherry7121@outlook.com | moving to next... ===
+[16:45:45] === Results: skip_flag=False, stop_flag=False, last_result=SKIP_CAPTCHA ===
+[16:45:45] Sheet ID: 1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[16:45:45] === PAUSE 5s ===
+[16:45:50] Sheet updated: row 101, JenniferCherry7121@outlook.com → captcha
+[16:45:50] === PAUSE DONE ===
+[16:45:51] WG disconnect: wg-HR-52
+[16:45:53] WG connect: D:\test\OUTLOOK SIGNE IN\vpn_configs\wg-GR-45.conf tunnel=wg-GR-45
+[16:45:53] WG install rc=0
+[16:46:07] === LAUNCHING asyncio.run for DanielleGarcia6283@outlook.com ===
+[16:46:42] === OTP LOOP START ===
+[16:46:42] Loop 0: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=12405970-d71d-44f4-86b2-ffea91eb8cfc
+[16:46:43] Loop 1: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=12405970-d71d-44f4-86b2-ffea91eb8cfc
+[16:46:44] Loop 2: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=12405970-d71d-44f4-86b2-ffea91eb8cfc
+[16:46:45] Loop 3: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=12405970-d71d-44f4-86b2-ffea91eb8cfc
+[16:46:46] Loop 4: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=12405970-d71d-44f4-86b2-ffea91eb8cfc
+[16:46:47] Loop 5: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=12405970-d71d-44f4-86b2-ffea91eb8cfc
+[16:46:51] Loop 6: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=12405970-d71d-44f4-86b2-ffea91eb8cfc
+[16:46:52] Loop 7: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=12405970-d71d-44f4-86b2-ffea91eb8cfc
+[16:46:53] Loop 8: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=12405970-d71d-44f4-86b2-ffea91eb8cfc
+[16:46:53] === FINALLY BLOCK ===
+[16:46:54] === FINALLY DONE (batch) ===
+[16:46:54] === asyncio.run FINISHED for DanielleGarcia6283@outlook.com ===
+[16:46:54] Sheet update: email=DanielleGarcia6283@outlook.com, status=captcha, sheet_id=1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[16:46:54] === ACCOUNT DONE: DanielleGarcia6283@outlook.com | moving to next... ===
+[16:46:54] Sheet ID: 1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[16:46:54] === Results: skip_flag=False, stop_flag=False, last_result=SKIP_CAPTCHA ===
+[16:46:54] === PAUSE 5s ===
+[16:46:57] Sheet updated: row 102, DanielleGarcia6283@outlook.com → captcha
+[16:46:59] === PAUSE DONE ===
+[16:46:59] WG disconnect: wg-GR-45
+[16:47:02] WG connect: D:\test\OUTLOOK SIGNE IN\vpn_configs\wg-PT-67.conf tunnel=wg-PT-67
+[16:47:02] WG install rc=0
+[16:47:15] === LAUNCHING asyncio.run for ShaneWagner3171@outlook.com ===
+[16:47:47] === OTP LOOP START ===
+[16:47:47] Loop 0: OTP FOUND via #cvf-input-code
+[16:47:47] OTP loop done. otp_found=True, otp_sel=#cvf-input-code
+[16:47:47] === OUTLOOK FLOW START ===
+[16:47:47] Opening new page for Outlook...
+[16:48:53] OTP paste check: otp=744398, otp_found=True, otp_sel=#cvf-input-code
+[16:49:32] === FINALLY BLOCK ===
+[16:49:32] === FINALLY DONE (batch) ===
+[16:49:32] === asyncio.run FINISHED for ShaneWagner3171@outlook.com ===
+[16:49:32] Sheet update: email=ShaneWagner3171@outlook.com, status=phone, sheet_id=1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[16:49:32] === ACCOUNT DONE: ShaneWagner3171@outlook.com | moving to next... ===
+[16:49:32] === Results: skip_flag=False, stop_flag=False, last_result=phone ===
+[16:49:32] Sheet ID: 1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[16:49:32] === PAUSE 5s ===
+[16:49:35] Sheet updated: row 103, ShaneWagner3171@outlook.com → phone
+[16:49:37] === PAUSE DONE ===
+[16:49:37] WG disconnect: wg-PT-67
+[16:49:39] WG cleanup leftover: wg-PT-67
+[16:49:41] WG connect: D:\test\OUTLOOK SIGNE IN\vpn_configs\wg-DE-516.conf tunnel=wg-DE-516
+[16:49:41] WG install rc=0
+[16:49:54] === LAUNCHING asyncio.run for MichaelTucker6655@outlook.com ===
+[16:50:35] === OTP LOOP START ===
+[16:50:35] Loop 0: OTP FOUND via #cvf-input-code
+[16:50:35] OTP loop done. otp_found=True, otp_sel=#cvf-input-code
+[16:50:35] === OUTLOOK FLOW START ===
+[16:50:35] Opening new page for Outlook...
+[16:51:40] OUTLOOK ERROR: Page.goto: net::ERR_CONNECTION_RESET at https://outlook.live.com/mail/0/inbox
+Call log:
+  - navigating to "https://outlook.live.com/mail/0/inbox", waiting until "domcontentloaded"
+
+[16:51:40] Traceback (most recent call last):
+  File "D:\test\OUTLOOK SIGNE IN\app_gui.pyw", line 594, in run_playwright_flow
+    await page_outlook.goto("https://outlook.live.com/mail/0/inbox", wait_until="domcontentloaded", timeout=40000)
+  File "C:\Users\aasso\AppData\Roaming\Python\Python313\site-packages\playwright\async_api\_generated.py", line 9045, in goto
+    await self._impl_obj.goto(
+        url=url, timeout=timeout, waitUntil=wait_until, referer=referer
+    )
+  File "C:\Users\aasso\AppData\Roaming\Python\Python313\site-packages\playwright\_impl\_page.py", line 552, in goto
+    return await self._main_frame.goto(**locals_to_params(locals()))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\aasso\AppData\Roaming\Python\Python313\site-packages\playwright\_impl\_frame.py", line 153, in goto
+    await self._channel.send(
+        "goto", self._navigation_timeout, locals_to_params(locals())
+    )
+  File "C:\Users\aasso\AppData\Roaming\Python\Python313\site-packages\playwright\_impl\_connection.py", line 69, in send
+    return await self._connection.wrap_api_call(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "C:\Users\aasso\AppData\Roaming\Python\Python313\site-packages\playwright\_impl\_connection.py", line 559, in wrap_api_call
+    raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+playwright._impl._errors.Error: Page.goto: net::ERR_CONNECTION_RESET at https://outlook.live.com/mail/0/inbox
+Call log:
+  - navigating to "https://outlook.live.com/mail/0/inbox", waiting until "domcontentloaded"
+
+
+[16:51:40] OTP paste check: otp=None, otp_found=True, otp_sel=#cvf-input-code
+[16:51:40] === FINALLY BLOCK ===
+[16:51:41] === FINALLY DONE (batch) ===
+[16:51:41] === asyncio.run FINISHED for MichaelTucker6655@outlook.com ===
+[16:51:41] Sheet update: email=MichaelTucker6655@outlook.com, status=verification, sheet_id=1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[16:51:41] === ACCOUNT DONE: MichaelTucker6655@outlook.com | moving to next... ===
+[16:51:41] === Results: skip_flag=False, stop_flag=False, last_result=SKIP_VERIFICATION ===
+[16:51:41] Sheet ID: 1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[16:51:41] === PAUSE 5s ===
+[16:51:45] Sheet updated: row 104, MichaelTucker6655@outlook.com → verification
+[16:51:46] === PAUSE DONE ===
+[16:51:46] WG disconnect: wg-DE-516
+[16:51:47] WG cleanup leftover: wg-DE-516
+[16:51:49] WG connect: D:\test\OUTLOOK SIGNE IN\vpn_configs\wg-BA-6.conf tunnel=wg-BA-6
+[16:51:49] WG install rc=0
+[16:52:04] === LAUNCHING asyncio.run for BenjaminDavenport2964@outlook.com ===
+[16:52:38] === OTP LOOP START ===
+[16:52:38] Loop 0: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=1c02a9e6-21ac-4ee1-b395-90ee4c4372e0
+[16:52:39] Loop 1: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=1c02a9e6-21ac-4ee1-b395-90ee4c4372e0
+[16:52:40] Loop 2: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=1c02a9e6-21ac-4ee1-b395-90ee4c4372e0
+[16:52:41] Loop 3: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=1c02a9e6-21ac-4ee1-b395-90ee4c4372e0
+[16:52:42] Loop 4: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=1c02a9e6-21ac-4ee1-b395-90ee4c4372e0
+[16:52:43] Loop 5: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=1c02a9e6-21ac-4ee1-b395-90ee4c4372e0
+[16:52:46] Loop 6: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=1c02a9e6-21ac-4ee1-b395-90ee4c4372e0
+[16:52:47] Loop 7: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=1c02a9e6-21ac-4ee1-b395-90ee4c4372e0
+[16:52:48] Loop 8: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=1c02a9e6-21ac-4ee1-b395-90ee4c4372e0
+[16:52:48] === FINALLY BLOCK ===
+[16:52:49] === FINALLY DONE (batch) ===
+[16:52:49] === asyncio.run FINISHED for BenjaminDavenport2964@outlook.com ===
+[16:52:49] Sheet update: email=BenjaminDavenport2964@outlook.com, status=captcha, sheet_id=1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[16:52:49] === ACCOUNT DONE: BenjaminDavenport2964@outlook.com | moving to next... ===
+[16:52:49] Sheet ID: 1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[16:52:49] === Results: skip_flag=False, stop_flag=False, last_result=SKIP_CAPTCHA ===
+[16:52:49] === PAUSE 5s ===
+[16:52:52] Sheet updated: row 105, BenjaminDavenport2964@outlook.com → captcha
+[16:52:54] === PAUSE DONE ===
+[16:52:54] WG disconnect: wg-BA-6
+[16:52:57] WG connect: D:\test\OUTLOOK SIGNE IN\vpn_configs\wg-AT-147.conf tunnel=wg-AT-147
+[16:52:57] WG install rc=0
+[16:53:10] === LAUNCHING asyncio.run for ArianaMcdonald2996@outlook.com ===
+[16:53:46] === OTP LOOP START ===
+[16:53:46] Loop 0: OTP FOUND via #cvf-input-code
+[16:53:46] OTP loop done. otp_found=True, otp_sel=#cvf-input-code
+[16:53:46] === OUTLOOK FLOW START ===
+[16:53:46] Opening new page for Outlook...
+[16:54:39] OTP paste check: otp=522396, otp_found=True, otp_sel=#cvf-input-code
+[16:55:14] === FINALLY BLOCK ===
+[16:55:14] === FINALLY DONE (batch) ===
+[16:55:14] === asyncio.run FINISHED for ArianaMcdonald2996@outlook.com ===
+[16:55:14] Sheet update: email=ArianaMcdonald2996@outlook.com, status=phone, sheet_id=1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[16:55:14] === ACCOUNT DONE: ArianaMcdonald2996@outlook.com | moving to next... ===
+[16:55:14] === Results: skip_flag=False, stop_flag=False, last_result=phone ===
+[16:55:14] Sheet ID: 1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[16:55:14] === PAUSE 5s ===
+[16:55:17] Sheet updated: row 106, ArianaMcdonald2996@outlook.com → phone
+[16:55:19] === PAUSE DONE ===
+[16:55:20] WG disconnect: wg-AT-147
+[16:55:20] WG cleanup leftover: wg-AT-147
+[16:55:22] WG connect: D:\test\OUTLOOK SIGNE IN\vpn_configs\wg-AU-222.conf tunnel=wg-AU-222
+[16:55:22] WG install rc=0
+[16:55:37] === LAUNCHING asyncio.run for MatthewMacdonald2219@outlook.com ===
+[16:56:21] === OTP LOOP START ===
+[16:56:21] Loop 0: OTP FOUND via #cvf-input-code
+[16:56:21] OTP loop done. otp_found=True, otp_sel=#cvf-input-code
+[16:56:21] === OUTLOOK FLOW START ===
+[16:56:21] Opening new page for Outlook...
+[16:57:54] OTP paste check: otp=321650, otp_found=True, otp_sel=#cvf-input-code
+[17:00:24] === FINALLY BLOCK ===
+[17:00:25] === FINALLY DONE (batch) ===
+[17:00:25] === asyncio.run FINISHED for MatthewMacdonald2219@outlook.com ===
+[17:00:25] Sheet update: email=MatthewMacdonald2219@outlook.com, status=ok+2fa, sheet_id=1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[17:00:25] === ACCOUNT DONE: MatthewMacdonald2219@outlook.com | moving to next... ===
+[17:00:25] === Results: skip_flag=False, stop_flag=False, last_result=None ===
+[17:00:25] Sheet ID: 1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[17:00:25] === PAUSE 5s ===
+[17:00:30] === PAUSE DONE ===
+[17:00:32] WG disconnect: wg-AU-222
+[17:00:32] Sheet TOTP error: ("Connection broken: ConnectionAbortedError(10053, 'An established connection was aborted by the software in your host machine', None, 10053, None)", ConnectionAbortedError(10053, 'An established connection was aborted by the software in your host machine', None, 10053, None))
+[17:00:32] Sheet update error: ('Connection aborted.', ConnectionAbortedError(10053, 'An established connection was aborted by the software in your host machine', None, 10053, None))
+[17:00:32] WG cleanup leftover: wg-AU-222
+[17:00:34] WG connect: D:\test\OUTLOOK SIGNE IN\vpn_configs\wg-AT-95.conf tunnel=wg-AT-95
+[17:00:34] WG install rc=0
+[17:00:48] === LAUNCHING asyncio.run for GarrettMcdonald5566@outlook.com ===
+[17:01:22] === OTP LOOP START ===
+[17:01:22] Loop 0: OTP FOUND via #cvf-input-code
+[17:01:22] OTP loop done. otp_found=True, otp_sel=#cvf-input-code
+[17:01:22] === OUTLOOK FLOW START ===
+[17:01:22] Opening new page for Outlook...
+[17:02:23] OTP paste check: otp=225115, otp_found=True, otp_sel=#cvf-input-code
+[17:04:15] === FINALLY BLOCK ===
+[17:04:16] === FINALLY DONE (batch) ===
+[17:04:16] === asyncio.run FINISHED for GarrettMcdonald5566@outlook.com ===
+[17:04:16] Sheet update: email=GarrettMcdonald5566@outlook.com, status=ok+2fa, sheet_id=1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[17:04:16] === ACCOUNT DONE: GarrettMcdonald5566@outlook.com | moving to next... ===
+[17:04:16] === Results: skip_flag=False, stop_flag=False, last_result=None ===
+[17:04:16] Sheet ID: 1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[17:04:16] === PAUSE 5s ===
+[17:04:19] Sheet TOTP saved: row 108, GarrettMcdonald5566@outlook.com
+[17:04:19] Sheet updated: row 108, GarrettMcdonald5566@outlook.com → ok+2fa
+[17:04:21] === PAUSE DONE ===
+[17:04:22] WG disconnect: wg-AT-95
+[17:04:24] WG connect: D:\test\OUTLOOK SIGNE IN\vpn_configs\wg-LT-11.conf tunnel=wg-LT-11
+[17:04:24] WG install rc=0
+[17:04:38] === LAUNCHING asyncio.run for JohnChristensen4532@outlook.com ===
+[17:05:14] === OTP LOOP START ===
+[17:05:14] Loop 0: OTP FOUND via #cvf-input-code
+[17:05:14] OTP loop done. otp_found=True, otp_sel=#cvf-input-code
+[17:05:14] === OUTLOOK FLOW START ===
+[17:05:14] Opening new page for Outlook...
+[17:07:45] OTP paste check: otp=171412, otp_found=True, otp_sel=#cvf-input-code
+[17:09:06] === FINALLY BLOCK ===
+[17:09:07] === FINALLY DONE (batch) ===
+[17:09:07] === asyncio.run FINISHED for JohnChristensen4532@outlook.com ===
+[17:09:07] Sheet update: email=JohnChristensen4532@outlook.com, status=ok+2fa, sheet_id=1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[17:09:07] === ACCOUNT DONE: JohnChristensen4532@outlook.com | moving to next... ===
+[17:09:07] === Results: skip_flag=False, stop_flag=False, last_result=None ===
+[17:09:07] Sheet ID: 1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[17:09:07] === PAUSE 5s ===
+[17:09:10] Sheet TOTP saved: row 109, JohnChristensen4532@outlook.com
+[17:09:10] Sheet updated: row 109, JohnChristensen4532@outlook.com → ok+2fa
+[17:09:12] === PAUSE DONE ===
+[17:09:13] WG disconnect: wg-LT-11
+[17:09:16] WG connect: D:\test\OUTLOOK SIGNE IN\vpn_configs\wg-LT-35.conf tunnel=wg-LT-35
+[17:09:16] WG install rc=0
+[17:09:30] === LAUNCHING asyncio.run for DarrellCox3272@outlook.com ===
+[17:10:07] === OTP LOOP START ===
+[17:10:07] Loop 0: OTP FOUND via #cvf-input-code
+[17:10:07] OTP loop done. otp_found=True, otp_sel=#cvf-input-code
+[17:10:07] === OUTLOOK FLOW START ===
+[17:10:07] Opening new page for Outlook...
+[17:11:04] OTP paste check: otp=732018, otp_found=True, otp_sel=#cvf-input-code
+[17:13:26] === FINALLY BLOCK ===
+[17:13:28] === FINALLY DONE (batch) ===
+[17:13:28] === asyncio.run FINISHED for DarrellCox3272@outlook.com ===
+[17:13:28] Sheet update: email=DarrellCox3272@outlook.com, status=ok+2fa, sheet_id=1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[17:13:28] === ACCOUNT DONE: DarrellCox3272@outlook.com | moving to next... ===
+[17:13:28] === Results: skip_flag=False, stop_flag=False, last_result=None ===
+[17:13:28] Sheet ID: 1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[17:13:28] === PAUSE 5s ===
+[17:13:31] Sheet TOTP saved: row 110, DarrellCox3272@outlook.com
+[17:13:32] Sheet updated: row 110, DarrellCox3272@outlook.com → ok+2fa
+[17:13:33] === PAUSE DONE ===
+[17:13:33] WG disconnect: wg-LT-35
+[17:13:36] WG connect: D:\test\OUTLOOK SIGNE IN\vpn_configs\wg-DE-312.conf tunnel=wg-DE-312
+[17:13:36] WG install rc=0
+[17:13:49] === LAUNCHING asyncio.run for BrendaHoward9583@outlook.com ===
+[17:14:22] === OTP LOOP START ===
+[17:14:22] Loop 0: OTP FOUND via #cvf-input-code
+[17:14:22] OTP loop done. otp_found=True, otp_sel=#cvf-input-code
+[17:14:22] === OUTLOOK FLOW START ===
+[17:14:22] Opening new page for Outlook...
+[17:17:26] OTP paste check: otp=855140, otp_found=True, otp_sel=#cvf-input-code
+[17:18:49] === FINALLY BLOCK ===
+[17:18:49] === FINALLY DONE (batch) ===
+[17:18:49] === asyncio.run FINISHED for BrendaHoward9583@outlook.com ===
+[17:18:49] Sheet update: email=BrendaHoward9583@outlook.com, status=ok+2fa, sheet_id=1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[17:18:49] === ACCOUNT DONE: BrendaHoward9583@outlook.com | moving to next... ===
+[17:18:49] === Results: skip_flag=False, stop_flag=False, last_result=None ===
+[17:18:49] Sheet ID: 1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[17:18:49] === PAUSE 5s ===
+[17:18:52] Sheet updated: row 111, BrendaHoward9583@outlook.com → ok+2fa
+[17:18:53] Sheet TOTP saved: row 111, BrendaHoward9583@outlook.com
+[17:18:54] === PAUSE DONE ===
+[17:18:55] WG disconnect: wg-DE-312
+[17:18:57] WG connect: D:\test\OUTLOOK SIGNE IN\vpn_configs\wg-DE-206.conf tunnel=wg-DE-206
+[17:18:57] WG install rc=0
+[17:19:11] === LAUNCHING asyncio.run for PamelaBailey3019@outlook.com ===
+[17:19:51] === OTP LOOP START ===
+[17:19:51] Loop 0: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=687cfd51-63dc-490c-bbad-468b360e1c58
+[17:19:52] Loop 1: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=687cfd51-63dc-490c-bbad-468b360e1c58
+[17:19:54] Loop 2: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=687cfd51-63dc-490c-bbad-468b360e1c58
+[17:19:55] Loop 3: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=687cfd51-63dc-490c-bbad-468b360e1c58
+[17:19:56] Loop 4: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=687cfd51-63dc-490c-bbad-468b360e1c58
+[17:19:57] Loop 5: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=687cfd51-63dc-490c-bbad-468b360e1c58
+[17:20:01] Loop 6: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=687cfd51-63dc-490c-bbad-468b360e1c58
+[17:20:02] Loop 7: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=687cfd51-63dc-490c-bbad-468b360e1c58
+[17:20:03] Loop 8: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=687cfd51-63dc-490c-bbad-468b360e1c58
+[17:20:03] === FINALLY BLOCK ===
+[17:20:03] === FINALLY DONE (batch) ===
+[17:20:03] === asyncio.run FINISHED for PamelaBailey3019@outlook.com ===
+[17:20:03] Sheet update: email=PamelaBailey3019@outlook.com, status=captcha, sheet_id=1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[17:20:03] === ACCOUNT DONE: PamelaBailey3019@outlook.com | moving to next... ===
+[17:20:03] === Results: skip_flag=False, stop_flag=False, last_result=SKIP_CAPTCHA ===
+[17:20:03] Sheet ID: 1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[17:20:03] === PAUSE 5s ===
+[17:20:06] Sheet updated: row 112, PamelaBailey3019@outlook.com → captcha
+[17:20:08] === PAUSE DONE ===
+[17:20:09] WG disconnect: wg-DE-206
+[17:20:09] WG cleanup leftover: wg-DE-206
+[17:20:12] WG connect: D:\test\OUTLOOK SIGNE IN\vpn_configs\wg-AU-20.conf tunnel=wg-AU-20
+[17:20:12] WG install rc=0
+[17:20:26] === LAUNCHING asyncio.run for GregoryFox4533@outlook.com ===
+[17:21:08] === OTP LOOP START ===
+[17:21:09] Loop 0: OTP FOUND via #cvf-input-code
+[17:21:09] OTP loop done. otp_found=True, otp_sel=#cvf-input-code
+[17:21:09] === OUTLOOK FLOW START ===
+[17:21:09] Opening new page for Outlook...
+[17:22:16] OTP paste check: otp=420265, otp_found=True, otp_sel=#cvf-input-code
+[17:24:47] === FINALLY BLOCK ===
+[17:24:47] === FINALLY DONE (batch) ===
+[17:24:47] === asyncio.run FINISHED for GregoryFox4533@outlook.com ===
+[17:24:47] Sheet update: email=GregoryFox4533@outlook.com, status=ok+2fa, sheet_id=1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[17:24:47] === ACCOUNT DONE: GregoryFox4533@outlook.com | moving to next... ===
+[17:24:47] === Results: skip_flag=False, stop_flag=False, last_result=None ===
+[17:24:47] Sheet ID: 1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[17:24:47] === PAUSE 5s ===
+[17:24:52] === PAUSE DONE ===
+[17:24:54] WG disconnect: wg-AU-20
+[17:24:54] Sheet TOTP error: ('Connection aborted.', ConnectionAbortedError(10053, 'An established connection was aborted by the software in your host machine', None, 10053, None))
+[17:24:54] Sheet update error: ('Connection aborted.', ConnectionAbortedError(10053, 'An established connection was aborted by the software in your host machine', None, 10053, None))
+[17:24:56] WG connect: D:\test\OUTLOOK SIGNE IN\vpn_configs\wg-AT-202.conf tunnel=wg-AT-202
+[17:24:56] WG install rc=0
+[17:25:10] === LAUNCHING asyncio.run for GlennWoods3011@outlook.com ===
+[17:25:46] === OTP LOOP START ===
+[17:25:46] Loop 0: OTP FOUND via #cvf-input-code
+[17:25:46] OTP loop done. otp_found=True, otp_sel=#cvf-input-code
+[17:25:46] === OUTLOOK FLOW START ===
+[17:25:46] Opening new page for Outlook...
+[17:26:43] OTP paste check: otp=430375, otp_found=True, otp_sel=#cvf-input-code
+[17:28:04] === FINALLY BLOCK ===
+[17:28:09] === FINALLY DONE (batch) ===
+[17:28:09] === asyncio.run FINISHED for GlennWoods3011@outlook.com ===
+[17:28:09] Sheet update: email=GlennWoods3011@outlook.com, status=ok+2fa, sheet_id=1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[17:28:09] === ACCOUNT DONE: GlennWoods3011@outlook.com | moving to next... ===
+[17:28:09] === Results: skip_flag=False, stop_flag=False, last_result=None ===
+[17:28:09] Sheet ID: 1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[17:28:09] === PAUSE 5s ===
+[17:28:12] Sheet TOTP saved: row 114, GlennWoods3011@outlook.com
+[17:28:12] Sheet updated: row 114, GlennWoods3011@outlook.com → ok+2fa
+[17:28:14] === PAUSE DONE ===
+[17:28:15] WG disconnect: wg-AT-202
+[17:28:17] WG connect: D:\test\OUTLOOK SIGNE IN\vpn_configs\wg-DK-168.conf tunnel=wg-DK-168
+[17:28:17] WG install rc=0
+[17:28:31] === LAUNCHING asyncio.run for JessicaLewis7304@outlook.com ===
+[17:29:04] === OTP LOOP START ===
+[17:29:04] Loop 0: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=40b55c8d-f5e5-4721-a65f-309c7d42eb24
+[17:29:05] Loop 1: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=40b55c8d-f5e5-4721-a65f-309c7d42eb24
+[17:29:06] Loop 2: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=40b55c8d-f5e5-4721-a65f-309c7d42eb24
+[17:29:07] Loop 3: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=40b55c8d-f5e5-4721-a65f-309c7d42eb24
+[17:29:08] Loop 4: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=40b55c8d-f5e5-4721-a65f-309c7d42eb24
+[17:29:09] Loop 5: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=40b55c8d-f5e5-4721-a65f-309c7d42eb24
+[17:29:13] Loop 6: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=40b55c8d-f5e5-4721-a65f-309c7d42eb24
+[17:29:14] Loop 7: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=40b55c8d-f5e5-4721-a65f-309c7d42eb24
+[17:29:15] Loop 8: no OTP, URL=https://www.amazon.com/ap/cvf/request?arb=40b55c8d-f5e5-4721-a65f-309c7d42eb24
+[17:29:15] === FINALLY BLOCK ===
+[17:29:15] === FINALLY DONE (batch) ===
+[17:29:15] === asyncio.run FINISHED for JessicaLewis7304@outlook.com ===
+[17:29:15] Sheet update: email=JessicaLewis7304@outlook.com, status=captcha, sheet_id=1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[17:29:15] === ACCOUNT DONE: JessicaLewis7304@outlook.com | moving to next... ===
+[17:29:16] === Results: skip_flag=False, stop_flag=False, last_result=SKIP_CAPTCHA ===
+[17:29:16] Sheet ID: 1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[17:29:16] === PAUSE 5s ===
+[17:29:21] === PAUSE DONE ===
+[17:29:21] Sheet updated: row 115, JessicaLewis7304@outlook.com → captcha
+[17:29:21] WG disconnect: wg-DK-168
+[17:29:23] WG connect: D:\test\OUTLOOK SIGNE IN\vpn_configs\wg-NL-768.conf tunnel=wg-NL-768
+[17:29:23] WG install rc=0
+[17:29:29] WG disconnect: wg-NL-768
+[17:29:37] === LAUNCHING asyncio.run for AliciaWilliams3778@outlook.com ===
+[17:30:07] === OTP LOOP START ===
+[17:30:07] Loop 0: STOP/SKIP flag set
+[17:30:07] === FINALLY BLOCK ===
+[17:30:08] === FINALLY DONE (batch) ===
+[17:30:08] === asyncio.run FINISHED for AliciaWilliams3778@outlook.com ===
+[17:30:08] Sheet update: email=AliciaWilliams3778@outlook.com, status=skip, sheet_id=1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[17:30:08] === ACCOUNT DONE: AliciaWilliams3778@outlook.com | moving to next... ===
+[17:30:08] === Results: skip_flag=True, stop_flag=True, last_result=None ===
+[17:30:08] Sheet ID: 1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[17:30:09] Sheet updated: row 116, AliciaWilliams3778@outlook.com → skip
+[20:30:05] === start_batch called. batch_rows=118, btn_state=normal ===
+[20:30:05] WG connect: D:\test\OUTLOOK SIGNE IN\vpn_configs\wg-FR-615.conf tunnel=wg-FR-615
+[20:30:05] WG install rc=0
+[20:30:19] === LAUNCHING asyncio.run for WendyHodge5528@outlook.com ===
+[20:30:50] === OTP LOOP START ===
+[20:30:50] Loop 0: OTP FOUND via #cvf-input-code
+[20:30:50] OTP loop done. otp_found=True, otp_sel=#cvf-input-code
+[20:30:50] === OUTLOOK FLOW START ===
+[20:30:50] Opening new page for Outlook...
+[20:31:49] OTP paste check: otp=266810, otp_found=True, otp_sel=#cvf-input-code
+[20:32:26] === FINALLY BLOCK ===
+[20:32:27] === FINALLY DONE (batch) ===
+[20:32:27] === asyncio.run FINISHED for WendyHodge5528@outlook.com ===
+[20:32:27] Sheet update: email=WendyHodge5528@outlook.com, status=phone, sheet_id=1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[20:32:27] === ACCOUNT DONE: WendyHodge5528@outlook.com | moving to next... ===
+[20:32:27] === Results: skip_flag=False, stop_flag=False, last_result=phone ===
+[20:32:27] === PAUSE 5s ===
+[20:32:27] Sheet ID: 1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[20:32:29] Sheet updated: row 117, WendyHodge5528@outlook.com → phone
+[20:32:32] === PAUSE DONE ===
+[20:32:32] WG disconnect: wg-FR-615
+[20:32:35] WG connect: D:\test\OUTLOOK SIGNE IN\vpn_configs\wg-BE-61.conf tunnel=wg-BE-61
+[20:32:35] WG install rc=0
+[20:32:49] === LAUNCHING asyncio.run for AmySolis3931@outlook.com ===
+[20:33:19] === OTP LOOP START ===
+[20:33:19] Loop 0: OTP FOUND via #cvf-input-code
+[20:33:19] OTP loop done. otp_found=True, otp_sel=#cvf-input-code
+[20:33:19] === OUTLOOK FLOW START ===
+[20:33:19] Opening new page for Outlook...
+[20:34:08] OTP paste check: otp=387531, otp_found=True, otp_sel=#cvf-input-code
+[20:34:43] === FINALLY BLOCK ===
+[20:34:43] === FINALLY DONE (batch) ===
+[20:34:43] === asyncio.run FINISHED for AmySolis3931@outlook.com ===
+[20:34:43] Sheet update: email=AmySolis3931@outlook.com, status=phone, sheet_id=1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[20:34:43] === ACCOUNT DONE: AmySolis3931@outlook.com | moving to next... ===
+[20:34:43] === Results: skip_flag=False, stop_flag=False, last_result=phone ===
+[20:34:43] Sheet ID: 1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[20:34:43] === PAUSE 5s ===
+[20:34:46] Sheet updated: row 118, AmySolis3931@outlook.com → phone
+[20:34:48] === PAUSE DONE ===
+[20:34:48] WG disconnect: wg-BE-61
+[20:34:51] WG connect: D:\test\OUTLOOK SIGNE IN\vpn_configs\wg-DE-616.conf tunnel=wg-DE-616
+[20:34:51] WG install rc=0
+[20:35:04] === LAUNCHING asyncio.run for BryanWiggins9687@outlook.com ===
+[20:35:39] === OTP LOOP START ===
+[20:35:39] Loop 0: OTP FOUND via #cvf-input-code
+[20:35:40] OTP loop done. otp_found=True, otp_sel=#cvf-input-code
+[20:35:40] === OUTLOOK FLOW START ===
+[20:35:40] Opening new page for Outlook...
+[20:36:57] OTP paste check: otp=726171, otp_found=True, otp_sel=#cvf-input-code
+[20:38:18] === FINALLY BLOCK ===
+[20:38:19] === FINALLY DONE (batch) ===
+[20:38:19] === asyncio.run FINISHED for BryanWiggins9687@outlook.com ===
+[20:38:19] Sheet update: email=BryanWiggins9687@outlook.com, status=ok+2fa, sheet_id=1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[20:38:19] === ACCOUNT DONE: BryanWiggins9687@outlook.com | moving to next... ===
+[20:38:19] === Results: skip_flag=False, stop_flag=False, last_result=None ===
+[20:38:19] Sheet ID: 1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[20:38:19] === PAUSE 5s ===
+[20:38:22] Sheet updated: row 119, BryanWiggins9687@outlook.com → ok+2fa
+[20:38:22] Sheet TOTP saved: row 119, BryanWiggins9687@outlook.com
+[20:38:24] === PAUSE DONE ===
+[20:38:24] WG disconnect: wg-DE-616
+[20:38:27] WG connect: D:\test\OUTLOOK SIGNE IN\vpn_configs\wg-IT-85.conf tunnel=wg-IT-85
+[20:38:27] WG install rc=0
+[20:38:40] === LAUNCHING asyncio.run for WendyNelson8111@outlook.com ===
+[20:39:21] === OTP LOOP START ===
+[20:39:21] Loop 0: OTP FOUND via #cvf-input-code
+[20:39:21] OTP loop done. otp_found=True, otp_sel=#cvf-input-code
+[20:39:21] === OUTLOOK FLOW START ===
+[20:39:21] Opening new page for Outlook...
+[20:40:14] OTP paste check: otp=525158, otp_found=True, otp_sel=#cvf-input-code
+[20:41:36] === FINALLY BLOCK ===
+[20:41:36] === FINALLY DONE (batch) ===
+[20:41:36] === asyncio.run FINISHED for WendyNelson8111@outlook.com ===
+[20:41:36] Sheet update: email=WendyNelson8111@outlook.com, status=ok+2fa, sheet_id=1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[20:41:36] === ACCOUNT DONE: WendyNelson8111@outlook.com | moving to next... ===
+[20:41:36] === Results: skip_flag=False, stop_flag=False, last_result=None ===
+[20:41:37] Sheet ID: 1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[20:41:37] === PAUSE 5s ===
+[20:41:41] Sheet TOTP saved: row 120, WendyNelson8111@outlook.com
+[20:41:42] Sheet updated: row 120, WendyNelson8111@outlook.com → ok+2fa
+[20:41:42] === PAUSE DONE ===
+[20:41:42] WG disconnect: wg-IT-85
+[20:41:45] WG connect: D:\test\OUTLOOK SIGNE IN\vpn_configs\wg-GR-123.conf tunnel=wg-GR-123
+[20:41:45] WG install rc=0
+[20:41:58] === LAUNCHING asyncio.run for BrandonRodriguez3704@outlook.com ===
+[20:42:37] === OTP LOOP START ===
+[20:42:37] Loop 0: OTP FOUND via #cvf-input-code
+[20:42:37] OTP loop done. otp_found=True, otp_sel=#cvf-input-code
+[20:42:37] === OUTLOOK FLOW START ===
+[20:42:37] Opening new page for Outlook...
+[20:43:37] OTP paste check: otp=455160, otp_found=True, otp_sel=#cvf-input-code
+[20:45:01] === FINALLY BLOCK ===
+[20:45:01] === FINALLY DONE (batch) ===
+[20:45:01] === asyncio.run FINISHED for BrandonRodriguez3704@outlook.com ===
+[20:45:01] Sheet update: email=BrandonRodriguez3704@outlook.com, status=ok+2fa, sheet_id=1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[20:45:01] === ACCOUNT DONE: BrandonRodriguez3704@outlook.com | moving to next... ===
+[20:45:02] === Results: skip_flag=False, stop_flag=False, last_result=None ===
+[20:45:02] Sheet ID: 1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[20:45:02] === PAUSE 5s ===
+[20:45:07] === PAUSE DONE ===
+[20:45:07] WG disconnect: wg-GR-123
+[20:45:07] Sheet update error: ('Connection aborted.', ConnectionAbortedError(10053, 'An established connection was aborted by the software in your host machine', None, 10053, None))
+[20:45:07] Sheet TOTP error: ('Connection aborted.', ConnectionAbortedError(10053, 'An established connection was aborted by the software in your host machine', None, 10053, None))
+[20:45:10] WG connect: D:\test\OUTLOOK SIGNE IN\vpn_configs\wg-ES-273.conf tunnel=wg-ES-273
+[20:45:10] WG install rc=0
+[20:45:23] === LAUNCHING asyncio.run for MelindaBurke1654@outlook.com ===
+[20:45:55] === OTP LOOP START ===
+[20:45:55] Loop 0: OTP FOUND via #cvf-input-code
+[20:45:55] OTP loop done. otp_found=True, otp_sel=#cvf-input-code
+[20:45:55] === OUTLOOK FLOW START ===
+[20:45:55] Opening new page for Outlook...
+[20:47:21] OTP paste check: otp=167546, otp_found=True, otp_sel=#cvf-input-code
+[20:48:44] === FINALLY BLOCK ===
+[20:48:44] === FINALLY DONE (batch) ===
+[20:48:44] === asyncio.run FINISHED for MelindaBurke1654@outlook.com ===
+[20:48:44] Sheet update: email=MelindaBurke1654@outlook.com, status=ok+2fa, sheet_id=1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[20:48:44] === ACCOUNT DONE: MelindaBurke1654@outlook.com | moving to next... ===
+[20:48:44] Sheet ID: 1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[20:48:44] === Results: skip_flag=False, stop_flag=False, last_result=None ===
+[20:48:44] === PAUSE 5s ===
+[20:48:47] Sheet TOTP saved: row 122, MelindaBurke1654@outlook.com
+[20:48:47] Sheet updated: row 122, MelindaBurke1654@outlook.com → ok+2fa
+[20:48:49] === PAUSE DONE ===
+[20:48:50] WG disconnect: wg-ES-273
+[20:48:52] WG connect: D:\test\OUTLOOK SIGNE IN\vpn_configs\wg-LT-10.conf tunnel=wg-LT-10
+[20:48:53] WG install rc=0
+[20:49:07] === LAUNCHING asyncio.run for BrettHernandez7995@outlook.com ===
+[20:49:46] === OTP LOOP START ===
+[20:49:46] Loop 0: OTP FOUND via #cvf-input-code
+[20:49:46] OTP loop done. otp_found=True, otp_sel=#cvf-input-code
+[20:49:46] === OUTLOOK FLOW START ===
+[20:49:46] Opening new page for Outlook...
+[20:50:54] OTP paste check: otp=309228, otp_found=True, otp_sel=#cvf-input-code
+[20:51:32] === FINALLY BLOCK ===
+[20:51:37] === FINALLY DONE (batch) ===
+[20:51:37] === asyncio.run FINISHED for BrettHernandez7995@outlook.com ===
+[20:51:37] Sheet update: email=BrettHernandez7995@outlook.com, status=phone, sheet_id=1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[20:51:37] === ACCOUNT DONE: BrettHernandez7995@outlook.com | moving to next... ===
+[20:51:37] === Results: skip_flag=False, stop_flag=False, last_result=phone ===
+[20:51:37] Sheet ID: 1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[20:51:37] === PAUSE 5s ===
+[20:51:42] Sheet updated: row 123, BrettHernandez7995@outlook.com → phone
+[20:51:42] === PAUSE DONE ===
+[20:51:43] WG disconnect: wg-LT-10
+[20:51:46] WG connect: D:\test\OUTLOOK SIGNE IN\vpn_configs\wg-FR-215.conf tunnel=wg-FR-215
+[20:51:46] WG install rc=0
+[20:51:59] === LAUNCHING asyncio.run for TonyaBradshaw6984@outlook.com ===
+[20:52:32] === OTP LOOP START ===
+[20:52:32] Loop 0: OTP FOUND via #cvf-input-code
+[20:52:32] OTP loop done. otp_found=True, otp_sel=#cvf-input-code
+[20:52:32] === OUTLOOK FLOW START ===
+[20:52:32] Opening new page for Outlook...
+[20:53:56] OTP paste check: otp=724933, otp_found=True, otp_sel=#cvf-input-code
+[20:55:53] === FINALLY BLOCK ===
+[20:55:53] === FINALLY DONE (batch) ===
+[20:55:53] === asyncio.run FINISHED for TonyaBradshaw6984@outlook.com ===
+[20:55:53] Sheet update: email=TonyaBradshaw6984@outlook.com, status=ok+2fa, sheet_id=1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[20:55:53] === ACCOUNT DONE: TonyaBradshaw6984@outlook.com | moving to next... ===
+[20:55:53] === Results: skip_flag=False, stop_flag=False, last_result=None ===
+[20:55:53] Sheet ID: 1b2ZITJdEWSDFhn-HpEJtHBS6r_djKNm4wF2tqJRXgXI
+[20:55:53] === PAUSE 5s ===
+[20:55:54] WG disconnect: wg-FR-215
+[20:55:54] Sheet TOTP error: ('Connection aborted.', ConnectionResetError(10054, 'An existing connection was forcibly closed by the remote host', None, 10054, None))
+[20:55:54] Sheet update error: ('Connection aborted.', ConnectionResetError(10054, 'An existing connection was forcibly closed by the remote host', None, 10054, None))
+[20:55:54] === PAUSE DONE ===
